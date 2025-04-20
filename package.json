@@ -1,0 +1,21 @@
+{
+  "name": "mediscript",
+  "version": "1.0.0",
+  "description": "🔑 **[Sign up for AssemblyAI's API](https://www.assemblyai.com/?utm_source=github&utm_medium=referral&utm_campaign=smitha)** to get a free API key and $50 in credits. 🔑",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "daisyui": "^5.0.27",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.1.4"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.4"
+  }
+}

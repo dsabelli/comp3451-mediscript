@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mediscript</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='output.css') }}"
+    />
+  </head>
+  <body>
+    <div class="flex flex-col h-screen w-sm justify-center gap-2">
+      <div class="flex-none h-[180px] max-w-full overflow-hidden">
+        <div
+          style="background-color: #f7f7f7"
+          class="h-full w-full flex flex-col gap-6 items-center justify-center"
+        >
+          <div class="flex w-full px-4 justify-between">
+            <div>
+              <p class="text-sm font-bold">9:27</p>
+            </div>
+            <div class="flex gap-2">
+              <img class="w-4" src="../static/bars.svg" />
+              <img class="w-4" src="../static/wifi.svg" />
+              <img class="w-4" src="../static/battery.svg" />
+            </div>
+          </div>
+          <div class="w-full pl-4">
+            <a href="/home"><img class="w-7" src="../static/back.svg" /></a>
+          </div>
+          <h1 id="date" class="text-4xl"></h1>
+        </div>
+      </div>
+
+      <div
+        id="transcript-output"
+        class="transcript-box min-h-[500px] px-4 scroll-auto overflow-y-scroll"
+      >
+        <p class="recording-indicator text-xl">Recording... speak now</p>
+      </div>
+
+      <div
+        id="pause-controls"
+        style="background-color: #f7f7f7"
+        class="items-center h-[180px] w-full flex flex-col"
+      >
+        <div class="h-full w-full flex items-center justify-around">
+          <button id="pause-btn" class="cursor-pointer">
+            <img class="w-24" src="../static/pause-circle.svg" />
+          </button>
+        </div>
+        <!--         <div
+          class="pb-4 text-2xl h-1/4 w-full flex items-center justify-center"
+        ></div>-->
+      </div>
+      <div
+        id="play-controls"
+        style="background-color: #f7f7f7"
+        class="items-center h-[180px] w-full flex-col hidden"
+      >
+        <div class="h-full w-full flex items-center justify-around">
+          <button id="delete-button" class="cursor-pointer">
+            <a href="/home">Delete</a>
+          </button>
+          <button id="play-btn" class="cursor-pointer">
+            <img class="w-24" src="../static/play-circle.svg" />
+          </button>
+          <button id="save-button" class="cursor-pointer">Save</button>
+        </div>
+        <!--         <div
+        class="pb-4 text-2xl h-1/4 w-full flex items-center justify-center"
+      ></div>-->
+      </div>
+    </div>
+  </body>
+</html>
+
+<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+<script>
+  const socket = io();
+  const transcriptOutput = document.getElementById("transcript-output");
+  const date = document.getElementById("date");
+  const next = document.getElementById("next");
+  const pauseBtn = document.getElementById("pause-btn");
+  const playBtn = document.getElementById("play-btn");
+  const pauseControls = document.getElementById("pause-controls");
+  const playControls = document.getElementById("play-controls");
+  const saveButton = document.getElementById("save-button");
+  const deleteButton = document.getElementById("delete-button");
+
+  let isRecording = true;
+  let hasTranscript = false;
+  let originalTranscript = "";
+  let formattedTranscript = "";
+
+  const today = new Date();
+  const options = {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  };
+
+  formattedDate = today.toLocaleDateString("en-CA", options);
+
+  // Set title from session storage
+  const currentTitle =
+    sessionStorage.getItem("currentTranscriptTitle") || "Untitled Recording";
+
+  const currentUser = sessionStorage.getItem("currentUser");
+
+  date.textContent = currentTitle + "-" + formattedDate;
+
+  pauseBtn.addEventListener("click", () => {
+    pauseControls.classList.remove("flex");
+    pauseControls.classList.add("hidden");
+    playControls.classList.remove("hidden");
+    playControls.classList.add("flex");
+
+    socket.emit("toggle_transcription");
+  });
+
+  playBtn.addEventListener("click", () => {
+    playControls.classList.remove("flex");
+    playControls.classList.add("hidden");
+    pauseControls.classList.remove("hidden");
+    pauseControls.classList.add("flex");
+
+    socket.emit("toggle_transcription");
+  });
+
+  // Display the partial transcript in real-time
+  socket.on("partial_transcript", (data) => {
+    transcriptOutput.innerHTML = `<p>${data.text}</p>`;
+    originalTranscript = data.text; // Store the original transcript
+  });
+
+  // Display the formatted transcript when available
+  socket.on("formatted_transcript", (data) => {
+    //formattedTranscript = data.text; // Store the formatted transcript
+    // transcriptOutput.innerHTML = formattedTranscript;
+    hasTranscript = true;
+  });
+
+  // Save transcript function
+  function saveTranscript(title, user) {
+    if (!hasTranscript) {
+      alert("No transcript available to save.");
+      return;
+    }
+
+    fetch("/save-transcript", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        title: title,
+        user: user,
+      }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          // Redirect to archive page after successful save
+          window.location.href = "archive";
+        } else {
+          alert("Error saving transcript: " + data.error);
+        }
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        alert("Failed to save transcript. Please try again.");
+      });
+  }
+
+  // Add event listener for save button
+  saveButton.addEventListener("click", () => {
+    if (hasTranscript) {
+      saveTranscript(currentTitle, currentUser);
+    } else {
+      alert("No transcript available to save. Please record something first.");
+    }
+  });
+
+  // Add event listener for delete button
+  deleteButton.addEventListener("click", () => {
+    window.location.href = "/home";
+  });
+</script>

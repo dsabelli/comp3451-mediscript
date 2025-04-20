@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mediscript - Archive</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='output.css') }}"
+    />
+  </head>
+  <body style="background-color: #f7f7f7">
+    <div class="flex flex-col h-screen w-sm justify-center gap-2">
+      <div class="flex-none h-[180px] max-w-full overflow-hidden">
+        <div
+          class="h-full w-full flex flex-col gap-6 items-center justify-center"
+        >
+          <div class="flex w-full px-4 justify-between">
+            <div>
+              <p class="text-sm font-bold" id="current-time"></p>
+            </div>
+            <div class="flex gap-2">
+              <img class="w-4" src="../static/bars.svg" />
+              <img class="w-4" src="../static/wifi.svg" />
+              <img class="w-4" src="../static/battery.svg" />
+            </div>
+          </div>
+          <div class="w-full pl-4">
+            <a href="/home"><img class="w-7" src="../static/back.svg" /></a>
+          </div>
+          <h1 class="text-4xl">Archive</h1>
+        </div>
+      </div>
+
+      <div class="flex-grow overflow-y-auto px-4">
+        {% if transcripts %}
+        <div class="space-y-4">
+          {% for transcript in transcripts %}
+          <div class="transcript-item bg-white shadow rounded-lg p-4">
+            <a href="/view-transcript/{{ transcript.id }}" class="block">
+              <h2 class="text-xl font-bold">{{ transcript.title }}</h2>
+              <p class="text-sm text-gray-500">{{ transcript.created_at }}</p>
+              <div class="mt-2 text-gray-700 truncate">
+                {{ transcript.original_text[:100] }}{% if
+                transcript.original_text|length > 100 %}...{% endif %}
+              </div>
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8">
+          <p class="text-lg">No transcripts saved yet.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <script>
+      // Update the current time
+      function updateTime() {
+        const now = new Date();
+        document.getElementById("current-time").textContent =
+          now.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+      }
+
+      updateTime();
+      setInterval(updateTime, 60000); // Update every minute
+    </script>
+  </body>
+</html>

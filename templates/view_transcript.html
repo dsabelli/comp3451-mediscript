@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mediscript - View Transcript</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='output.css') }}"
+    />
+    <style>
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .tab-button.active {
+        border-bottom: 2px solid #4299e1;
+        color: #4299e1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="flex flex-col h-screen w-sm">
+      <div class="flex-none h-[180px] max-w-full overflow-hidden">
+        <div
+          style="background-color: #f7f7f7"
+          class="h-full w-full flex flex-col gap-6 items-center justify-center"
+        >
+          <div class="flex w-full px-4 justify-between">
+            <div>
+              <p class="text-sm font-bold" id="current-time"></p>
+            </div>
+            <div class="flex gap-2">
+              <img
+                class="w-4"
+                src="{{ url_for('static', filename='bars.svg') }}"
+              />
+              <img
+                class="w-4"
+                src="{{ url_for('static', filename='wifi.svg') }}"
+              />
+              <img
+                class="w-4"
+                src="{{ url_for('static', filename='battery.svg') }}"
+              />
+            </div>
+          </div>
+          <div class="w-full pl-4">
+            <a href="/archive"
+              ><img
+                class="w-7"
+                src="{{ url_for('static', filename='back.svg') }}"
+            /></a>
+          </div>
+          <h1 class="text-2xl font-bold">{{ transcript.title }}</h1>
+          <p class="text-sm text-gray-500">{{ transcript.created_at }}</p>
+        </div>
+      </div>
+
+      <div class="flex border-b">
+        <button
+          class="tab-button active flex-1 py-3 font-medium text-center"
+          data-tab="formatted"
+        >
+          Formatted
+        </button>
+        <button
+          class="tab-button flex-1 py-3 font-medium text-center"
+          data-tab="original"
+        >
+          Original
+        </button>
+      </div>
+
+      <div class="flex-grow overflow-y-auto p-4">
+        <div id="formatted-tab" class="tab-content active">
+          <div class="formatted-transcript">
+            {{ transcript.formatted_text|safe }}
+          </div>
+        </div>
+        <div id="original-tab" class="tab-content">
+          <div class="original-transcript">{{ transcript.original_text }}</div>
+        </div>
+      </div>
+
+      <div
+        style="background-color: #f7f7f7"
+        class="flex-none h-[80px] flex items-center justify-around"
+      >
+        <a
+          href="#"
+          id="share-btn"
+          class="px-4 py-2 rounded bg-blue-500 text-white"
+          >Share</a
+        >
+        <a href="#" id="download-btn" class="px-4 py-2 rounded border"
+          >Download</a
+        >
+      </div>
+    </div>
+
+    <script>
+      // Tab functionality
+      document.querySelectorAll(".tab-button").forEach((button) => {
+        button.addEventListener("click", () => {
+          // Remove active class from all tabs
+          document.querySelectorAll(".tab-button").forEach((btn) => {
+            btn.classList.remove("active");
+          });
+          document.querySelectorAll(".tab-content").forEach((content) => {
+            content.classList.remove("active");
+          });
+
+          // Add active class to clicked tab
+          button.classList.add("active");
+          const tabId = button.getAttribute("data-tab") + "-tab";
+          document.getElementById(tabId).classList.add("active");
+        });
+      });
+
+      // Update the current time
+      function updateTime() {
+        const now = new Date();
+        document.getElementById("current-time").textContent =
+          now.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+      }
+
+      updateTime();
+      setInterval(updateTime, 60000); // Update every minute
+
+      // Share functionality
+      document.getElementById("share-btn").addEventListener("click", (e) => {
+        e.preventDefault();
+        // Using Web Share API if available
+        if (navigator.share) {
+          navigator
+            .share({
+              title: "{{ transcript.title }}",
+              text: "Check out this medical transcript!",
+              url: window.location.href,
+            })
+            .catch((err) => console.error("Error sharing:", err));
+        } else {
+          alert("Sharing functionality not available on this browser.");
+        }
+      });
+
+      // Download functionality
+      document.getElementById("download-btn").addEventListener("click", (e) => {
+        e.preventDefault();
+        const activeTab = document.querySelector(".tab-content.active").id;
+        let content = "";
+        let filename = "";
+
+        if (activeTab === "formatted-tab") {
+          content = document.querySelector(".formatted-transcript").innerText;
+          filename = "{{ transcript.title }}_formatted.txt";
+        } else {
+          content = document.querySelector(".original-transcript").innerText;
+          filename = "{{ transcript.title }}_original.txt";
+        }
+
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    </script>
+  </body>
+</html>

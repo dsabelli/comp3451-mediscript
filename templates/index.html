@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mediscript</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='output.css') }}"
+    />
+  </head>
+  <body>
+    <div class="flex flex-col h-screen w-sm justify-center gap-2">
+      <div class="flex-none h-[180px] max-w-full overflow-hidden">
+        <div
+          style="background-color: #fafafa"
+          class="h-full w-full flex flex-col gap-6 items-center justify-center"
+        >
+          <div class="flex w-full px-4 justify-between">
+            <div>
+              <p class="text-sm font-bold">9:27</p>
+            </div>
+            <div class="flex gap-2">
+              <img class="w-4" src="../static/bars.svg" />
+              <img class="w-4" src="../static/wifi.svg" />
+              <img class="w-4" src="../static/battery.svg" />
+            </div>
+          </div>
+          <h1 id="date" class="text-4xl"></h1>
+          <h2 id="next" class="text-xl pt-4"></h2>
+        </div>
+      </div>
+      <div class="flex max-w-full gap-2">
+        <a class="w-full" href="search"
+          ><div
+            style="background-color: #38a386"
+            class="items-center h-[180px] w-full flex flex-col"
+          >
+            <div class="h-full flex items-center">
+              <img class="w-24" src="../static/search.svg" />
+            </div>
+            <div
+              class="pb-4 text-white text-2xl h-1/4 w-full flex items-center justify-center"
+            >
+              Search
+            </div>
+          </div></a
+        >
+        <a class="w-full" href="appointments"
+          ><div
+            style="background-color: #4846c3"
+            class="items-center h-[180px] w-full flex flex-col"
+          >
+            <div class="h-full flex items-center">
+              <img class="w-24" src="../static/calendar.svg" />
+            </div>
+            <div
+              class="pb-4 text-white text-2xl h-1/4 w-full flex items-center justify-center"
+            >
+              Appointments
+            </div>
+          </div></a
+        >
+      </div>
+      <div class="flex max-w-full gap-2">
+        <a class="w-full" href="archive"
+          ><div
+            style="background-color: #ef4b3e"
+            class="items-center h-[180px] w-full flex flex-col"
+          >
+            <div class="h-full flex items-center">
+              <img class="w-24" src="../static/archive.svg" />
+            </div>
+            <div
+              class="pb-4 text-white text-2xl h-1/4 w-full flex items-center justify-center"
+            >
+              Archive
+            </div>
+          </div></a
+        >
+        <a class="w-full" href="settings"
+          ><div
+            style="background-color: #0087ac"
+            class="items-center h-[180px] w-full flex flex-col"
+          >
+            <div class="h-full flex items-center">
+              <img class="w-24" src="../static/user.svg" />
+            </div>
+            <div
+              class="pb-4 text-white text-2xl h-1/4 w-full flex items-center justify-center"
+            >
+              Settings
+            </div>
+          </div></a
+        >
+      </div>
+
+      <div
+        style="background-color: #f7f7f7"
+        class="items-center h-[180px] w-full flex flex-col"
+      >
+        <div class="h-full flex items-center">
+          <button id="record-btn" class="w-full cursor-pointer">
+            <img class="w-36" src="../static/record.svg" />
+          </button>
+        </div>
+        <div
+          class="pb-4 text-2xl h-1/4 w-full flex items-center justify-center"
+        >
+          Start Recording
+        </div>
+      </div>
+
+      <!-- Title Modal -->
+      <div
+        id="title-modal"
+        class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-50 z-50"
+      >
+        <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-md mx-4">
+          <h3 class="text-xl font-bold text-gray-800 mb-4">
+            Enter Transcript Title
+          </h3>
+          <form id="title-form">
+            <div class="mb-4">
+              <label
+                for="title-input"
+                class="block text-sm font-medium text-gray-700 mb-1"
+                >Title:</label
+              >
+              <input
+                type="text"
+                id="title-input"
+                required
+                placeholder="e.g., Patient Consultation - Dr. Smith"
+                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div class="flex justify-end space-x-3 mt-6">
+              <button
+                type="button"
+                id="cancel-title-btn"
+                class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              >
+                Start Recording
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+    <script>
+      const socket = io();
+      const titleModal = document.getElementById("title-modal");
+      const recordBtn = document.getElementById("record-btn");
+      const cancelTitleBtn = document.getElementById("cancel-title-btn");
+      const titleForm = document.getElementById("title-form");
+      const titleInput = document.getElementById("title-input");
+      // Initially hide the modal
+
+      // Show the modal when the record button is clicked
+      recordBtn.addEventListener("click", function (e) {
+        e.preventDefault(); // Prevent the default link behavior
+        titleModal.classList.add("flex");
+        titleModal.classList.remove("hidden");
+        titleInput.focus(); // Focus on the input field
+      });
+
+      // Hide the modal when the cancel button is clicked
+      cancelTitleBtn.addEventListener("click", function () {
+        titleModal.style.display = "none";
+        titleInput.value = ""; // Clear the input field
+      });
+
+      // Handle form submission
+      titleForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        const title = titleInput.value.trim();
+        if (!title) return;
+
+        // Hide modal
+        titleModal.style.display = "none";
+
+        // Store title in session storage for use in transcript page
+        sessionStorage.setItem("currentTranscriptTitle", title);
+
+        // Emit toggle_transcription event with title
+        socket.emit("toggle_transcription", { title: title });
+
+        // Redirect to transcript page
+        window.location.href = "transcript";
+      });
+
+      // Close the modal if user clicks outside of it
+      window.addEventListener("click", function (e) {
+        if (e.target === titleModal) {
+          titleModal.style.display = "none";
+          titleInput.value = ""; // Clear the input field
+        }
+      });
+
+      const date = document.getElementById("date");
+      const next = document.getElementById("next");
+      const today = new Date();
+      const options = {
+        weekday: "short",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      };
+      date.textContent = today.toLocaleDateString("en-CA", options);
+      const apt = new Date("05-01-2025");
+      next.textContent =
+        "Next appointment - " + apt.toLocaleDateString("en-CA", options);
+
+      // Check if user is logged in
+      document.addEventListener("DOMContentLoaded", function () {
+        const currentUser = sessionStorage.getItem("currentUser");
+
+        // If no user is logged in, redirect to login page
+        if (!currentUser) {
+          console.log("No user logged in, redirecting to login page");
+          window.location.href = "/login";
+        } else {
+          console.log("User logged in:", currentUser);
+        }
+      });
+    </script>
+  </body>
+</html>
