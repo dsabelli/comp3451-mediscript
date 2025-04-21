@@ -1,4 +1,13 @@
-from flask import Flask, redirect, render_template, request, jsonify, url_for
+from flask import (
+    Flask,
+    redirect,
+    render_template,
+    request,
+    jsonify,
+    url_for,
+    session,
+    flash,
+)
 from flask_socketio import SocketIO, emit
 import assemblyai as aai
 import threading
@@ -7,6 +16,7 @@ import os
 import json
 import time
 from datetime import datetime, timedelta
+from collections import OrderedDict
 
 
 from constant import assemblyai_api_key
@@ -22,6 +32,8 @@ transcriber_lock = threading.Lock()
 DATA_DIR = "data"
 TRANSCRIPTS_DIR = os.path.join(DATA_DIR, "transcripts")
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
+SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
+
 
 # Create directories if they don't exist
 os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
@@ -66,6 +78,54 @@ Process the transcript by:
 
 Maintain the original flow and meaning of the transcript while applying these enhancements.
 """
+
+# Initialize settings file if it doesn't exist
+if not os.path.exists(SETTINGS_FILE):
+    default_settings = {
+        "theme": "light",
+        "keyword_formats": {
+            "phi": '<span style="color: red;">...</span>',
+            "medical_condition": "<strong>...</strong>",
+            "anatomy": "<em>...</em>",
+            "medication": "<strong>...</strong>",
+            "tests_treatments": "<strong>...</strong>",
+        },
+        "prompt_template": prompt,
+    }
+    with open(SETTINGS_FILE, "w") as f:
+        json.dump(default_settings, f, indent=4)
+
+
+def get_settings():
+    try:
+        with open(SETTINGS_FILE, "r") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        # If settings file is corrupted or missing, return defaults
+        default_settings = {
+            "theme": "light",
+            "keyword_formats": {
+                "phi": '<span style="color: red;">...</span>',
+                "medical_condition": "<strong>...</strong>",
+                "anatomy": "<em>...</em>",
+                "medication": "<strong>...</strong>",
+                "tests_treatments": "<strong>...</strong>",
+            },
+            "prompt_template": prompt,
+        }
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(default_settings, f, indent=4)
+        return default_settings
+
+
+def save_settings(settings):
+    try:
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(settings, f, indent=4)
+        return True
+    except Exception as e:
+        print(f"Error saving settings: {e}")
+        return False
 
 
 # File operations for transcripts
@@ -212,14 +272,53 @@ def archive():
     return render_template("archive.html", transcripts=transcripts)
 
 
-@app.route("/settings")
+@app.route("/settings", methods=["GET", "POST"])
 def settings():
-    return render_template("settings.html")
+    if request.method == "POST":
+        current_settings = get_settings()
+
+        # Update theme
+        theme = request.form.get("theme", "light")
+        current_settings["theme"] = theme
+
+        # Update keyword formats
+        current_settings["keyword_formats"]["phi"] = request.form.get(
+            "phi_format", '<span style="color: red;">...</span>'
+        )
+        current_settings["keyword_formats"]["medical_condition"] = request.form.get(
+            "medical_condition_format", "<strong>...</strong>"
+        )
+        current_settings["keyword_formats"]["anatomy"] = request.form.get(
+            "anatomy_format", "<em>...</em>"
+        )
+        current_settings["keyword_formats"]["medication"] = request.form.get(
+            "medication_format", "<strong>...</strong>"
+        )
+        current_settings["keyword_formats"]["tests_treatments"] = request.form.get(
+            "tests_treatments_format", "<strong>...</strong>"
+        )
+
+        # Update prompt template
+        prompt_template = request.form.get("prompt_template", prompt)
+        current_settings["prompt_template"] = prompt_template
+
+        if save_settings(current_settings):
+            flash("Settings saved successfully!", "success")
+        else:
+            flash("Failed to save settings.", "error")
+
+        return redirect(url_for("settings"))
+
+    # GET request
+    settings = get_settings()
+    return render_template("settings.html", settings=settings)
 
 
-from flask import render_template
-from collections import OrderedDict
-from datetime import datetime
+# Add this to your context processors to make the theme available in all templates
+@app.context_processor
+def inject_settings():
+    settings = get_settings()
+    return dict(theme=settings["theme"])
 
 
 @app.route("/appointments")

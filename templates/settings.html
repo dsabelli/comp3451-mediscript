@@ -3,23 +3,178 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mediscript</title>
+    <title>Mediscript - Settings</title>
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='output.css') }}"
     />
   </head>
-  <body>
-    <div class="header">
-      <a href="https://www.assemblyai.com" class="home-button">
-        <img
-          href="https://www.assemblyai.com"
-          src="{{ url_for('static', filename='AAI_Logo_Primary.png') }}"
-          alt="AssemblyAI Logo"
-          class="logo"
-        />
-      </a>
-      <h1>Settings</h1>
+  <body
+    class="{{ 'bg-gray-100' if theme == 'light' else 'bg-gray-900 text-white' }}"
+  >
+    <div class="flex flex-col h-screen w-sm justify-center gap-2">
+      <div class="flex-none h-[180px] max-w-full overflow-hidden">
+        <div
+          class="h-full w-full flex flex-col gap-6 items-center justify-center"
+        >
+          <div class="flex w-full px-4 justify-between">
+            <div>
+              <p class="text-sm font-bold" id="current-time"></p>
+            </div>
+            <div class="flex gap-2">
+              <img class="w-4" src="../static/bars.svg" />
+              <img class="w-4" src="../static/wifi.svg" />
+              <img class="w-4" src="../static/battery.svg" />
+            </div>
+          </div>
+          <div class="w-full pl-4">
+            <a href="/home"><img class="w-7" src="../static/back.svg" /></a>
+          </div>
+          <h1 class="text-4xl">Settings</h1>
+        </div>
+      </div>
+
+      <div class="flex-grow overflow-y-auto px-4 pb-8">
+        {% with messages = get_flashed_messages(with_categories=true) %} {% if
+        messages %} {% for category, message in messages %}
+        <div
+          class="{{ 'bg-green-100 border-green-500 text-green-700' if category == 'success' else 'bg-red-100 border-red-500 text-red-700' }} border-l-4 p-4 mb-4 rounded"
+        >
+          <p>{{ message }}</p>
+        </div>
+        {% endfor %} {% endif %} {% endwith %}
+
+        <form
+          method="POST"
+          action="{{ url_for('settings') }}"
+          class="space-y-6"
+        >
+          <!-- Theme Selection -->
+          <div
+            class="bg-white shadow rounded-lg p-4 {{ 'bg-gray-800' if theme == 'dark' else '' }}"
+          >
+            <h2 class="text-xl font-bold mb-4">Theme</h2>
+            <div class="flex space-x-4">
+              <label class="inline-flex items-center">
+                <input type="radio" name="theme" value="light" {{ 'checked' if
+                settings.theme == 'light' else '' }} class="form-radio h-5 w-5
+                text-blue-600">
+                <span class="ml-2">Light Mode</span>
+              </label>
+              <label class="inline-flex items-center">
+                <input type="radio" name="theme" value="dark" {{ 'checked' if
+                settings.theme == 'dark' else '' }} class="form-radio h-5 w-5
+                text-blue-600">
+                <span class="ml-2">Dark Mode</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Keyword Formatting -->
+          <div
+            class="bg-white shadow rounded-lg p-4 {{ 'bg-gray-800' if theme == 'dark' else '' }}"
+          >
+            <h2 class="text-xl font-bold mb-4">Keyword Formatting</h2>
+
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-1"
+                  >Protected Health Information (PHI)</label
+                >
+                <input
+                  type="text"
+                  name="phi_format"
+                  value="{{ settings.keyword_formats.phi }}"
+                  class="w-full px-3 py-2 border rounded-md {{ 'bg-gray-700 border-gray-600' if theme == 'dark' else '' }}"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium mb-1"
+                  >Medical Condition/History</label
+                >
+                <input
+                  type="text"
+                  name="medical_condition_format"
+                  value="{{ settings.keyword_formats.medical_condition }}"
+                  class="w-full px-3 py-2 border rounded-md {{ 'bg-gray-700 border-gray-600' if theme == 'dark' else '' }}"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium mb-1">Anatomy</label>
+                <input
+                  type="text"
+                  name="anatomy_format"
+                  value="{{ settings.keyword_formats.anatomy }}"
+                  class="w-full px-3 py-2 border rounded-md {{ 'bg-gray-700 border-gray-600' if theme == 'dark' else '' }}"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium mb-1">Medication</label>
+                <input
+                  type="text"
+                  name="medication_format"
+                  value="{{ settings.keyword_formats.medication }}"
+                  class="w-full px-3 py-2 border rounded-md {{ 'bg-gray-700 border-gray-600' if theme == 'dark' else '' }}"
+                />
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium mb-1"
+                  >Tests, Treatments & Procedures</label
+                >
+                <input
+                  type="text"
+                  name="tests_treatments_format"
+                  value="{{ settings.keyword_formats.tests_treatments }}"
+                  class="w-full px-3 py-2 border rounded-md {{ 'bg-gray-700 border-gray-600' if theme == 'dark' else '' }}"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Prompt Template -->
+          <div
+            class="bg-white shadow rounded-lg p-4 {{ 'bg-gray-800' if theme == 'dark' else '' }}"
+          >
+            <h2 class="text-xl font-bold mb-4">Prompt Template</h2>
+            <textarea
+              name="prompt_template"
+              rows="10"
+              class="w-full px-3 py-2 border rounded-md {{ 'bg-gray-700 border-gray-600' if theme == 'dark' else '' }}"
+            >
+{{ settings.prompt_template }}</textarea
+            >
+          </div>
+
+          <!-- Submit Button -->
+          <div class="flex justify-center">
+            <button
+              type="submit"
+              class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            >
+              Save Settings
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
+
+    <script>
+      // Display current time
+      function updateTime() {
+        const now = new Date();
+        const timeElement = document.getElementById("current-time");
+        timeElement.textContent = now.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      updateTime();
+      setInterval(updateTime, 60000); // Update every minute
+    </script>
   </body>
 </html>
