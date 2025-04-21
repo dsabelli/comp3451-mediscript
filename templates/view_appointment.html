@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mediscript - View Appointment</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='output.css') }}"
+    />
+    <!-- Add these styles to the <head> section of your view_appointment.html file -->
+    <style>
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+      }
+
+      .modal-content {
+        background-color: white;
+        margin: 15% auto;
+        padding: 20px;
+        width: 80%;
+        max-width: 500px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
+      .close:hover {
+        color: black;
+      }
+    </style>
+  </head>
+  <body style="background-color: #f7f7f7">
+    <div class="flex flex-col h-screen w-sm justify-center gap-2">
+      <div class="flex-none h-[180px] max-w-full overflow-hidden">
+        <div
+          class="h-full w-full flex flex-col gap-6 items-center justify-center"
+        >
+          <div class="flex w-full px-4 justify-between">
+            <div>
+              <p class="text-sm font-bold" id="current-time"></p>
+            </div>
+            <div class="flex gap-2">
+              <img class="w-4" src="../static/bars.svg" />
+              <img class="w-4" src="../static/wifi.svg" />
+              <img class="w-4" src="../static/battery.svg" />
+            </div>
+          </div>
+          <div class="w-full pl-4">
+            <a href="/appointments"
+              ><img class="w-7" src="../static/back.svg"
+            /></a>
+          </div>
+          <h1 class="text-4xl">Appointment Details</h1>
+        </div>
+      </div>
+      <div class="flex-grow overflow-y-auto px-4">
+        <div class="bg-white shadow rounded-lg p-6">
+          <h2 class="text-2xl font-bold mb-2">{{ appointment.title }}</h2>
+          <div class="flex items-center mb-4">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5 mr-2 text-gray-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            <p class="text-gray-700">{{ appointment.date }}</p>
+          </div>
+
+          {% if appointment.description %}
+          <div class="border-t pt-4 mt-4">
+            <h3 class="text-lg font-semibold mb-2">Description</h3>
+            <p class="text-gray-700 whitespace-pre-line">
+              {{ appointment.description }}
+            </p>
+          </div>
+          {% endif %}
+
+          <div class="border-t pt-4 mt-4">
+            <p class="text-sm text-gray-500">
+              Created: {{ appointment.created_at }}
+            </p>
+          </div>
+
+          <div class="mt-6 flex gap-2">
+            <button
+              id="editBtn"
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Edit
+            </button>
+            <button
+              id="deleteBtn"
+              class="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Add this modal to the view_appointment.html file, just before the closing </body> tag -->
+    <div id="editModal" class="modal">
+      <div class="modal-content">
+        <span class="close" id="editClose">&times;</span>
+        <h2 class="text-2xl font-bold mb-4">Edit Appointment</h2>
+        <form id="editForm">
+          <div class="mb-4">
+            <label
+              class="block text-gray-700 text-sm font-bold mb-2"
+              for="editTitle"
+            >
+              Title:
+            </label>
+            <input
+              class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              id="editTitle"
+              type="text"
+              value="{{ appointment.title }}"
+              required
+            />
+          </div>
+          <div class="mb-4">
+            <label
+              class="block text-gray-700 text-sm font-bold mb-2"
+              for="editDate"
+            >
+              Date:
+            </label>
+            <input
+              class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              id="editDate"
+              type="datetime-local"
+              required
+            />
+          </div>
+          <div class="mb-6">
+            <label
+              class="block text-gray-700 text-sm font-bold mb-2"
+              for="editDescription"
+            >
+              Description (optional):
+            </label>
+            <textarea
+              class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+              id="editDescription"
+            >
+{{ appointment.description }}</textarea
+            >
+          </div>
+          <div class="flex items-center justify-between">
+            <button
+              class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              type="submit"
+            >
+              Update Appointment
+            </button>
+            <button
+              class="bg-gray-500 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              type="button"
+              id="editCancelBtn"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <script>
+      // Update the current time
+      function updateTime() {
+        const now = new Date();
+        document.getElementById("current-time").textContent =
+          now.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+      }
+      updateTime();
+      setInterval(updateTime, 60000); // Update every minute
+
+      // Delete functionality would go here
+      document
+        .getElementById("deleteBtn")
+        .addEventListener("click", function () {
+          if (confirm("Are you sure you want to delete this appointment?")) {
+            // Send delete request to server
+            fetch(`/delete-appointment/{{ appointment.id }}`, {
+              method: "DELETE",
+            })
+              .then((response) => response.json())
+              .then((data) => {
+                if (data.success) {
+                  window.location.href = "/appointments";
+                } else {
+                  alert("Error deleting appointment: " + data.error);
+                }
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+                alert("An error occurred while deleting the appointment.");
+              });
+          }
+        });
+      // Add this to your view_appointment.html file's script section
+      document.addEventListener("DOMContentLoaded", function () {
+        // Set up the edit modal elements
+        const editModal = document.getElementById("editModal");
+        const editBtn = document.getElementById("editBtn");
+        const editClose = document.getElementById("editClose");
+        const editCancelBtn = document.getElementById("editCancelBtn");
+        const editForm = document.getElementById("editForm");
+        const editDateInput = document.getElementById("editDate");
+
+        // Function to parse the display date into the format needed for datetime-local input
+        function parseDisplayDate(displayDate) {
+          const date = new Date(displayDate);
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, "0");
+          const day = String(date.getDate()).padStart(2, "0");
+          const hours = String(date.getHours()).padStart(2, "0");
+          const minutes = String(date.getMinutes()).padStart(2, "0");
+
+          return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        // Try to parse the appointment date for the datetime-local input
+        try {
+          const appointmentDate = "{{ appointment.date }}";
+          editDateInput.value = parseDisplayDate(appointmentDate);
+        } catch (e) {
+          console.error("Could not parse appointment date:", e);
+          // Set to current date/time as fallback
+          const now = new Date();
+          const year = now.getFullYear();
+          const month = String(now.getMonth() + 1).padStart(2, "0");
+          const day = String(now.getDate()).padStart(2, "0");
+          const hours = String(now.getHours()).padStart(2, "0");
+          const minutes = String(now.getMinutes()).padStart(2, "0");
+
+          editDateInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        // Open edit modal
+        editBtn.onclick = function () {
+          editModal.style.display = "block";
+        };
+
+        // Close edit modal
+        editClose.onclick = function () {
+          editModal.style.display = "none";
+        };
+
+        editCancelBtn.onclick = function () {
+          editModal.style.display = "none";
+        };
+
+        // Close if clicked outside
+        window.onclick = function (event) {
+          if (event.target == editModal) {
+            editModal.style.display = "none";
+          }
+        };
+
+        // Handle edit form submission
+        editForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+
+          const title = document.getElementById("editTitle").value;
+          const date = document.getElementById("editDate").value;
+          const description = document.getElementById("editDescription").value;
+
+          // Format date for display
+          const formattedDate = new Date(date).toLocaleString("en-US", {
+            weekday: "short",
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
+
+          fetch("/update-appointment/{{ appointment.id }}", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              title: title,
+              date: formattedDate,
+              description: description,
+              user: "{{ appointment.user }}", // Maintain the same user
+            }),
+          })
+            .then((response) => response.json())
+            .then((data) => {
+              if (data.success) {
+                // Refresh the page to show updated information
+                window.location.reload();
+              } else {
+                alert("Error updating appointment: " + data.error);
+              }
+            })
+            .catch((error) => {
+              console.error("Error:", error);
+              alert("An error occurred while updating the appointment.");
+            });
+        });
+      });
+    </script>
+  </body>
+</html>

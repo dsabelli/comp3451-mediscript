@@ -6,7 +6,7 @@ import asyncio
 import os
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 from constant import assemblyai_api_key
@@ -217,9 +217,228 @@ def settings():
     return render_template("settings.html")
 
 
+from flask import render_template
+from collections import OrderedDict
+from datetime import datetime
+
+
 @app.route("/appointments")
 def appointments():
-    return render_template("appointments.html")
+    # Fetch appointments from your database
+    appointments = get_all_appointments()  # Your existing function
+
+    # Group appointments by month
+    appointments_by_month = {}
+
+    for appointment in appointments:
+        # Parse the date from your appointment
+        # Using dictionary access instead of attribute access
+        date_str = appointment["date"]  # Change this line
+        date_obj = datetime.strptime(date_str, "%a, %b %d, %Y, %I:%M %p")
+        month_year = date_obj.strftime("%B %Y")  # "April 2025"
+
+        if month_year not in appointments_by_month:
+            appointments_by_month[month_year] = []
+
+        appointments_by_month[month_year].append(appointment)
+
+    # Sort the months chronologically
+    sorted_appointments = OrderedDict()
+
+    # Get list of (month_year, date_obj) tuples for sorting
+    month_dates = []
+    for month_year in appointments_by_month:
+        # Extract first date of month for sorting
+        first_date = datetime.strptime(month_year, "%B %Y")
+        month_dates.append((month_year, first_date))
+
+    # Sort by date
+    sorted_month_dates = sorted(month_dates, key=lambda x: x[1])
+
+    # Create ordered dictionary
+    for month_year, _ in sorted_month_dates:
+        sorted_appointments[month_year] = appointments_by_month[month_year]
+
+    return render_template(
+        "appointments.html", appointments_by_month=sorted_appointments
+    )
+
+
+# File operations for appointments
+def save_appointment(title, date, description, user):
+    """Save appointment to a JSON file"""
+    # Generate unique ID based on timestamp
+    timestamp = int(time.time())
+    appointment_id = f"{timestamp}"
+
+    # Create file path
+    file_name = f"{appointment_id}.json"
+    file_path = os.path.join(APPOINTMENTS_DIR, file_name)
+
+    # Create appointment data
+    appointment_data = {
+        "id": appointment_id,
+        "title": title,
+        "date": date,
+        "description": description,
+        "user": user,
+        "created_at": datetime.now().isoformat(),
+    }
+
+    # Save to file
+    with open(file_path, "w") as f:
+        json.dump(appointment_data, f, indent=2)
+
+    return appointment_id
+
+
+def get_appointment(appointment_id):
+    """Retrieve an appointment by ID"""
+    file_path = os.path.join(APPOINTMENTS_DIR, f"{appointment_id}.json")
+    if os.path.exists(file_path):
+        with open(file_path, "r") as f:
+            return json.load(f)
+    return None
+
+
+def get_all_appointments():
+    """Retrieve all appointments"""
+    appointments = []
+    for filename in os.listdir(APPOINTMENTS_DIR):
+        if filename.endswith(".json"):
+            file_path = os.path.join(APPOINTMENTS_DIR, filename)
+            with open(file_path, "r") as f:
+                appointments.append(json.load(f))
+
+    # Sort by appointment date (upcoming first)
+    def get_date_for_sorting(appointment):
+        try:
+            date_str = appointment.get("date", "")
+            if date_str:
+                return datetime.strptime(date_str, "%a, %b %d, %Y, %I:%M %p")
+            return datetime.max  # For appointments without dates
+        except ValueError:
+            return datetime.max  # In case of date parsing errors
+
+    appointments.sort(key=get_date_for_sorting)
+    return appointments
+
+
+# Add these at the top of your file with other constants
+APPOINTMENTS_DIR = os.path.join(DATA_DIR, "appointments")
+os.makedirs(APPOINTMENTS_DIR, exist_ok=True)
+
+
+# API endpoint to save appointment
+@app.route("/save-appointment", methods=["POST"])
+def save_appointment_endpoint():
+    data = request.json
+    title = data.get("title")
+    date = data.get("date")
+    description = data.get("description", "")
+    user = data.get("user")
+
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+    if not date:
+        return jsonify({"error": "Date is required"}), 400
+    if not user:
+        return jsonify({"error": "User is required"}), 400
+
+    appointment_id = save_appointment(
+        title=title, date=date, description=description, user=user
+    )
+
+    return jsonify(
+        {
+            "success": True,
+            "id": appointment_id,
+            "title": title,
+            "date": date,
+            "description": description,
+            "user": user,
+        }
+    )
+
+
+@app.route("/view-appointment/<appointment_id>")
+def view_appointment(appointment_id):
+    appointment = get_appointment(appointment_id)
+    if not appointment:
+        return "Appointment not found", 404
+    return render_template("view_appointment.html", appointment=appointment)
+
+
+def delete_appointment(appointment_id):
+    """Delete an appointment by ID"""
+    file_path = os.path.join(APPOINTMENTS_DIR, f"{appointment_id}.json")
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        return True
+    return False
+
+
+@app.route("/delete-appointment/<appointment_id>", methods=["DELETE"])
+def delete_appointment_endpoint(appointment_id):
+    success = delete_appointment(appointment_id)
+    if success:
+        return jsonify({"success": True})
+    else:
+        return jsonify({"success": False, "error": "Appointment not found"}), 404
+
+
+def update_appointment(appointment_id, title, date, description, user):
+    """Update an existing appointment"""
+    file_path = os.path.join(APPOINTMENTS_DIR, f"{appointment_id}.json")
+
+    if not os.path.exists(file_path):
+        return False, "Appointment not found"
+
+    # Get existing appointment data
+    with open(file_path, "r") as f:
+        appointment_data = json.load(f)
+
+    # Update fields
+    appointment_data["title"] = title
+    appointment_data["date"] = date
+    appointment_data["description"] = description
+    appointment_data["user"] = user
+    appointment_data["updated_at"] = datetime.now().isoformat()
+
+    # Save updated appointment
+    with open(file_path, "w") as f:
+        json.dump(appointment_data, f, indent=2)
+
+    return True, appointment_data
+
+
+@app.route("/update-appointment/<appointment_id>", methods=["PUT"])
+def update_appointment_endpoint(appointment_id):
+    data = request.json
+    title = data.get("title")
+    date = data.get("date")
+    description = data.get("description", "")
+    user = data.get("user")
+
+    if not title:
+        return jsonify({"error": "Title is required"}), 400
+    if not date:
+        return jsonify({"error": "Date is required"}), 400
+    if not user:
+        return jsonify({"error": "User is required"}), 400
+
+    success, result = update_appointment(
+        appointment_id=appointment_id,
+        title=title,
+        date=date,
+        description=description,
+        user=user,
+    )
+
+    if success:
+        return jsonify({"success": True, "appointment": result})
+    else:
+        return jsonify({"success": False, "error": result}), 404
 
 
 # API endpoint to save transcript

@@ -3,23 +3,208 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mediscript</title>
+    <title>Mediscript - Search</title>
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='output.css') }}"
     />
   </head>
-  <body>
-    <div class="header">
-      <a href="https://www.assemblyai.com" class="home-button">
-        <img
-          href="https://www.assemblyai.com"
-          src="{{ url_for('static', filename='AAI_Logo_Primary.png') }}"
-          alt="AssemblyAI Logo"
-          class="logo"
-        />
-      </a>
-      <h1>Search</h1>
+  <body style="background-color: #f7f7f7">
+    <div class="flex flex-col h-screen w-sm justify-center gap-2">
+      <div class="flex-none h-[180px] max-w-full overflow-hidden">
+        <div
+          class="h-full w-full flex flex-col gap-6 items-center justify-center"
+        >
+          <div class="flex w-full px-4 justify-between">
+            <div>
+              <p class="text-sm font-bold" id="current-time"></p>
+            </div>
+            <div class="flex gap-2">
+              <img class="w-4" src="../static/bars.svg" />
+              <img class="w-4" src="../static/wifi.svg" />
+              <img class="w-4" src="../static/battery.svg" />
+            </div>
+          </div>
+          <div class="w-full pl-4">
+            <a href="/home"><img class="w-7" src="../static/back.svg" /></a>
+          </div>
+          <h1 class="text-4xl">Search</h1>
+        </div>
+      </div>
+
+      <div class="px-4 py-2">
+        <form id="search-form" class="flex items-center">
+          <div class="relative w-full">
+            <div
+              class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"
+            >
+              <svg
+                class="w-4 h-4 text-gray-500"
+                aria-hidden="true"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"
+                />
+              </svg>
+            </div>
+            <input
+              type="search"
+              id="search-input"
+              class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5"
+              placeholder="Search transcripts using keywords..."
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            class="p-2.5 ml-2 text-sm font-medium text-white bg-blue-500 rounded-lg border border-blue-500 hover:bg-blue-600 focus:ring-4 focus:outline-none focus:ring-blue-300"
+          >
+            <svg
+              class="w-4 h-4"
+              aria-hidden="true"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 20 20"
+            >
+              <path
+                stroke="currentColor"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"
+              />
+            </svg>
+            <span class="sr-only">Search</span>
+          </button>
+        </form>
+      </div>
+
+      <div class="flex-grow overflow-y-auto px-4">
+        <div id="loading" class="text-center py-8 hidden">
+          <p class="text-lg">Searching...</p>
+        </div>
+
+        <div id="no-search" class="text-center py-8">
+          <p class="text-lg">Enter keywords to search transcripts.</p>
+        </div>
+
+        <div id="no-results" class="text-center py-8 hidden">
+          <p class="text-lg">No transcripts found matching your search.</p>
+        </div>
+
+        <div id="search-results" class="space-y-4 hidden">
+          <!-- Results will be populated here -->
+        </div>
+      </div>
     </div>
+
+    <script>
+      // Check if user is logged in
+      document.addEventListener("DOMContentLoaded", function () {
+        const currentUser = sessionStorage.getItem("currentUser");
+
+        // If no user is logged in, redirect to login page
+        if (!currentUser) {
+          window.location.href = "/login";
+        }
+
+        // Update the current time
+        function updateTime() {
+          const now = new Date();
+          document.getElementById("current-time").textContent =
+            now.toLocaleTimeString("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+              hour12: true,
+            });
+        }
+
+        updateTime();
+        setInterval(updateTime, 60000); // Update every minute
+      });
+
+      // Search form functionality
+      const searchForm = document.getElementById("search-form");
+      const searchInput = document.getElementById("search-input");
+      const searchResults = document.getElementById("search-results");
+      const noSearch = document.getElementById("no-search");
+      const noResults = document.getElementById("no-results");
+      const loading = document.getElementById("loading");
+
+      searchForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        const keyword = searchInput.value.trim();
+
+        if (!keyword) {
+          alert("Please enter a search term");
+          return;
+        }
+
+        // Show loading
+        loading.classList.remove("hidden");
+        noSearch.classList.add("hidden");
+        noResults.classList.add("hidden");
+        searchResults.classList.add("hidden");
+        searchResults.innerHTML = "";
+
+        // Perform search
+        fetch(`/api/search?keyword=${encodeURIComponent(keyword)}`)
+          .then((response) => response.json())
+          .then((data) => {
+            // Hide loading
+            loading.classList.add("hidden");
+
+            if (data.transcripts && data.transcripts.length > 0) {
+              // Show results
+              searchResults.classList.remove("hidden");
+
+              // Build results HTML
+              data.transcripts.forEach((transcript) => {
+                const truncatedText =
+                  transcript.original_text.substring(0, 100) +
+                  (transcript.original_text.length > 100 ? "..." : "");
+
+                const resultDiv = document.createElement("div");
+                resultDiv.className =
+                  "transcript-item bg-white shadow rounded-lg p-4";
+                resultDiv.innerHTML = `
+                  <a href="/view-transcript/${transcript.id}" class="block">
+                    <h2 class="text-xl font-bold">${transcript.title}</h2>
+                    <p class="text-sm text-gray-500">${transcript.created_at}</p>
+                    <div class="mt-2 text-gray-700 truncate">
+                      ${truncatedText}
+                    </div>
+                  </a>
+                `;
+
+                searchResults.appendChild(resultDiv);
+              });
+            } else {
+              // Show no results
+              noResults.classList.remove("hidden");
+            }
+          })
+          .catch((error) => {
+            console.error("Error searching transcripts:", error);
+            loading.classList.add("hidden");
+            alert("Error searching transcripts. Please try again.");
+          });
+      });
+
+      // Also trigger search on Enter key in the search input
+      searchInput.addEventListener("keypress", function (e) {
+        if (e.key === "Enter") {
+          searchForm.dispatchEvent(new Event("submit"));
+        }
+      });
+    </script>
   </body>
 </html>
