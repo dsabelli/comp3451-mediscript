@@ -19,9 +19,10 @@ from datetime import datetime, timedelta
 from collections import OrderedDict
 
 
-from constant import assemblyai_api_key
+from constants import assemblyai_api_key, flask_secret_key
 
 app = Flask(__name__)
+app.secret_key = flask_secret_key
 socketio = SocketIO(app)
 
 aai.settings.api_key = assemblyai_api_key
@@ -33,15 +34,12 @@ DATA_DIR = "data"
 TRANSCRIPTS_DIR = os.path.join(DATA_DIR, "transcripts")
 USERS_FILE = os.path.join(DATA_DIR, "users.json")
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
+APPOINTMENTS_DIR = os.path.join(DATA_DIR, "appointments")
 
 
 # Create directories if they don't exist
 os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
-
-# Initialize users file if it doesn't exist
-if not os.path.exists(USERS_FILE):
-    with open(USERS_FILE, "w") as f:
-        json.dump([], f)
+os.makedirs(APPOINTMENTS_DIR, exist_ok=True)
 
 
 prompt = """You are a medical transcript analyzer. Your task is to process medical transcripts following these guidelines:
@@ -81,17 +79,7 @@ Maintain the original flow and meaning of the transcript while applying these en
 
 # Initialize settings file if it doesn't exist
 if not os.path.exists(SETTINGS_FILE):
-    default_settings = {
-        "theme": "light",
-        "keyword_formats": {
-            "phi": '<span style="color: red;">...</span>',
-            "medical_condition": "<strong>...</strong>",
-            "anatomy": "<em>...</em>",
-            "medication": "<strong>...</strong>",
-            "tests_treatments": "<strong>...</strong>",
-        },
-        "prompt_template": prompt,
-    }
+    default_settings = {"theme": "light"}
     with open(SETTINGS_FILE, "w") as f:
         json.dump(default_settings, f, indent=4)
 
@@ -102,17 +90,7 @@ def get_settings():
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         # If settings file is corrupted or missing, return defaults
-        default_settings = {
-            "theme": "light",
-            "keyword_formats": {
-                "phi": '<span style="color: red;">...</span>',
-                "medical_condition": "<strong>...</strong>",
-                "anatomy": "<em>...</em>",
-                "medication": "<strong>...</strong>",
-                "tests_treatments": "<strong>...</strong>",
-            },
-            "prompt_template": prompt,
-        }
+        default_settings = {"theme": "light"}
         with open(SETTINGS_FILE, "w") as f:
             json.dump(default_settings, f, indent=4)
         return default_settings
@@ -139,6 +117,9 @@ def save_transcript(title, user, original_text, formatted_text):
     file_name = f"{transcript_id}_{title.replace(' ', '_')}.json"
     file_path = os.path.join(TRANSCRIPTS_DIR, file_name)
 
+    now = datetime.now()
+    created_at = now.strftime("%B %d, %Y %I:%M %p")
+
     # Create transcript data
     transcript_data = {
         "id": transcript_id,
@@ -146,7 +127,8 @@ def save_transcript(title, user, original_text, formatted_text):
         "original_text": original_text,
         "formatted_text": formatted_text,
         "user": user,
-        "created_at": datetime.now().isoformat(),
+        "created_at": created_at,
+        "timestamp": datetime.now().isoformat(),
     }
 
     # Save to file
@@ -247,8 +229,15 @@ def root():
 
 @app.route("/home")
 def index():
-    # This is now your main application page after login
-    return render_template("index.html")
+    # Fetch all appointments
+    appointments = get_all_appointments()
+
+    # Get the next upcoming appointment
+    next_appointment = None
+    if appointments:
+        next_appointment = appointments[0]
+
+    return render_template("index.html", next_appointment=next_appointment)
 
 
 @app.route("/login")
@@ -266,6 +255,43 @@ def search():
     return render_template("search.html")
 
 
+def search_transcripts(keyword):
+    """Search transcripts for a specific keyword"""
+    results = []
+
+    # Convert keyword to lowercase for case-insensitive search
+    keyword = keyword.lower()
+
+    for filename in os.listdir(TRANSCRIPTS_DIR):
+        if filename.endswith(".json"):
+            file_path = os.path.join(TRANSCRIPTS_DIR, filename)
+            with open(file_path, "r") as f:
+                transcript = json.load(f)
+
+                # Check if keyword is in title or original text
+                if (
+                    keyword in transcript.get("title", "").lower()
+                    or keyword in transcript.get("original_text", "").lower()
+                ):
+                    results.append(transcript)
+
+    # Sort by created_at (newest first)
+    results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    return results
+
+
+@app.route("/api/search")
+def search_endpoint():
+    keyword = request.args.get("keyword", "")
+
+    if not keyword:
+        return jsonify({"error": "No keyword provided"}), 400
+
+    results = search_transcripts(keyword)
+
+    return jsonify({"transcripts": results})
+
+
 @app.route("/archive")
 def archive():
     transcripts = get_all_transcripts()
@@ -281,27 +307,6 @@ def settings():
         theme = request.form.get("theme", "light")
         current_settings["theme"] = theme
 
-        # Update keyword formats
-        current_settings["keyword_formats"]["phi"] = request.form.get(
-            "phi_format", '<span style="color: red;">...</span>'
-        )
-        current_settings["keyword_formats"]["medical_condition"] = request.form.get(
-            "medical_condition_format", "<strong>...</strong>"
-        )
-        current_settings["keyword_formats"]["anatomy"] = request.form.get(
-            "anatomy_format", "<em>...</em>"
-        )
-        current_settings["keyword_formats"]["medication"] = request.form.get(
-            "medication_format", "<strong>...</strong>"
-        )
-        current_settings["keyword_formats"]["tests_treatments"] = request.form.get(
-            "tests_treatments_format", "<strong>...</strong>"
-        )
-
-        # Update prompt template
-        prompt_template = request.form.get("prompt_template", prompt)
-        current_settings["prompt_template"] = prompt_template
-
         if save_settings(current_settings):
             flash("Settings saved successfully!", "success")
         else:
@@ -314,7 +319,7 @@ def settings():
     return render_template("settings.html", settings=settings)
 
 
-# Add this to your context processors to make the theme available in all templates
+# make the theme available in all templates
 @app.context_processor
 def inject_settings():
     settings = get_settings()
@@ -421,11 +426,6 @@ def get_all_appointments():
 
     appointments.sort(key=get_date_for_sorting)
     return appointments
-
-
-# Add these at the top of your file with other constants
-APPOINTMENTS_DIR = os.path.join(DATA_DIR, "appointments")
-os.makedirs(APPOINTMENTS_DIR, exist_ok=True)
 
 
 # API endpoint to save appointment

@@ -22,13 +22,73 @@
               <p class="text-sm font-bold" id="current-time"></p>
             </div>
             <div class="flex gap-2">
-              <img class="w-4" src="../static/bars.svg" />
-              <img class="w-4" src="../static/wifi.svg" />
-              <img class="w-4" src="../static/battery.svg" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="feather feather-bar-chart w-4 {{ 'text-black' if theme == 'light' else ' text-white' }}"
+              >
+                <line x1="12" y1="20" x2="12" y2="10"></line>
+                <line x1="18" y1="20" x2="18" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="16"></line>
+              </svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="feather feather-wifi w-4 {{ 'text-black' if theme == 'light' else ' text-white' }}"
+              >
+                <path d="M5 12.55a11 11 0 0 1 14.08 0"></path>
+                <path d="M1.42 9a16 16 0 0 1 21.16 0"></path>
+                <path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path>
+                <line x1="12" y1="20" x2="12.01" y2="20"></line>
+              </svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                stroke="currentColor"
+                stroke-width="3"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="feather feather-battery w-4 {{ 'text-black' if theme == 'light' else ' text-white' }}"
+              >
+                <rect x="1" y="6" width="18" height="12" rx="2" ry="2"></rect>
+                <line x1="23" y1="13" x2="23" y2="11"></line>
+              </svg>
             </div>
           </div>
           <div class="w-full pl-4">
-            <a href="/home"><img class="w-7" src="../static/back.svg" /></a>
+            <a href="/home"
+              ><svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="feather feather-corner-up-left w-8 {{ 'text-black' if theme == 'light' else ' text-white' }}"
+              >
+                <polyline points="9 14 4 9 9 4"></polyline>
+                <path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg
+            ></a>
           </div>
           <h1 class="text-4xl">Settings</h1>
         </div>
@@ -50,9 +110,7 @@
           class="space-y-6"
         >
           <!-- Theme Selection -->
-          <div
-            class="bg-white shadow rounded-lg p-4 {{ 'bg-gray-800' if theme == 'dark' else '' }}"
-          >
+          <div class="shadow rounded-lg p-4">
             <h2 class="text-xl font-bold mb-4">Theme</h2>
             <div class="flex space-x-4">
               <label class="inline-flex items-center">
@@ -68,85 +126,6 @@
                 <span class="ml-2">Dark Mode</span>
               </label>
             </div>
-          </div>
-
-          <!-- Keyword Formatting -->
-          <div
-            class="bg-white shadow rounded-lg p-4 {{ 'bg-gray-800' if theme == 'dark' else '' }}"
-          >
-            <h2 class="text-xl font-bold mb-4">Keyword Formatting</h2>
-
-            <div class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium mb-1"
-                  >Protected Health Information (PHI)</label
-                >
-                <input
-                  type="text"
-                  name="phi_format"
-                  value="{{ settings.keyword_formats.phi }}"
-                  class="w-full px-3 py-2 border rounded-md {{ 'bg-gray-700 border-gray-600' if theme == 'dark' else '' }}"
-                />
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium mb-1"
-                  >Medical Condition/History</label
-                >
-                <input
-                  type="text"
-                  name="medical_condition_format"
-                  value="{{ settings.keyword_formats.medical_condition }}"
-                  class="w-full px-3 py-2 border rounded-md {{ 'bg-gray-700 border-gray-600' if theme == 'dark' else '' }}"
-                />
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium mb-1">Anatomy</label>
-                <input
-                  type="text"
-                  name="anatomy_format"
-                  value="{{ settings.keyword_formats.anatomy }}"
-                  class="w-full px-3 py-2 border rounded-md {{ 'bg-gray-700 border-gray-600' if theme == 'dark' else '' }}"
-                />
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium mb-1">Medication</label>
-                <input
-                  type="text"
-                  name="medication_format"
-                  value="{{ settings.keyword_formats.medication }}"
-                  class="w-full px-3 py-2 border rounded-md {{ 'bg-gray-700 border-gray-600' if theme == 'dark' else '' }}"
-                />
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium mb-1"
-                  >Tests, Treatments & Procedures</label
-                >
-                <input
-                  type="text"
-                  name="tests_treatments_format"
-                  value="{{ settings.keyword_formats.tests_treatments }}"
-                  class="w-full px-3 py-2 border rounded-md {{ 'bg-gray-700 border-gray-600' if theme == 'dark' else '' }}"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Prompt Template -->
-          <div
-            class="bg-white shadow rounded-lg p-4 {{ 'bg-gray-800' if theme == 'dark' else '' }}"
-          >
-            <h2 class="text-xl font-bold mb-4">Prompt Template</h2>
-            <textarea
-              name="prompt_template"
-              rows="10"
-              class="w-full px-3 py-2 border rounded-md {{ 'bg-gray-700 border-gray-600' if theme == 'dark' else '' }}"
-            >
-{{ settings.prompt_template }}</textarea
-            >
           </div>
 
           <!-- Submit Button -->
@@ -166,11 +145,12 @@
       // Display current time
       function updateTime() {
         const now = new Date();
-        const timeElement = document.getElementById("current-time");
-        timeElement.textContent = now.toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        document.getElementById("current-time").textContent =
+          now.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          });
       }
 
       updateTime();

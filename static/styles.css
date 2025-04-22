@@ -8,125 +8,77 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background-color: #fff;
 }
-
-.header {
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
   width: 100%;
-  background-color: #ffffff;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+  background-color: white;
+  margin: 15% auto;
   padding: 20px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.home-button {
-  font-size: 16px;
-  color: #0000ff;
-  text-decoration: none;
-  margin-right: 20px;
-  padding-left: 20px;
-  position: absolute;
-  left: 20px;
-}
-
-.logo {
-  height: 40px;
-  margin-right: 20px;
-}
-
-.header h1 {
-  margin: 0;
-  text-align: center;
-}
-
-.container {
   width: 80%;
-  max-width: 1200px;
-  margin-top: 20px;
+  max-width: 500px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.controls {
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-#toggle-btn {
-  padding: 10px 20px;
-  font-size: 16px;
-  border: none;
-  border-radius: 5px;
+.close {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
   cursor: pointer;
 }
 
-.mic-off {
-  background-color: green;
-  color: white;
-}
-
-.mic-on {
-  background-color: red;
-  color: white;
-}
-
-.transcript-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
-}
-
-.transcript {
-  width: 70%;
-  background-color: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-.transcript h2 {
-  margin-top: 0;
-}
-
-.legend {
-  width: 25%;
-  background-color: white;
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-}
-
-.legend h3 {
-  margin-top: 0;
-}
-
-.legend p {
-  margin: 5px 0;
-}
-
-.phi {
-  color: red;
-}
-
-.medical-history {
-  background-color: lightgreen;
-}
-
-.anatomy {
-  font-style: italic;
-}
-
-.medication {
+.close:hover {
   color: black;
-  background-color: yellow;
 }
 
-.tests {
-  color: darkblue;
+.add-button {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 60px;
+  height: 60px;
+  background-color: #4f46e5;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
 }
 
+.month-heading {
+  margin-top: 24px;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #4f46e5;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.tab-content {
+  display: none;
+}
+.tab-content.active {
+  display: block;
+}
+.tab-button.active {
+  border-bottom: 2px solid #4299e1;
+  color: #4299e1;
+}
 #save-button {
   background-color: #4caf50; /* Green */
   border: none;
