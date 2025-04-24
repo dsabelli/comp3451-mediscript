@@ -101,6 +101,19 @@
         <p class="recording-indicator text-xl">Recording... speak now</p>
       </div>
 
+      <!-- Loading Overlay -->
+      <div
+        id="loading-overlay"
+        class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden"
+      >
+        <div class="bg-white rounded-lg p-6 flex flex-col items-center">
+          <div
+            class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mb-4"
+          ></div>
+          <p class="text-gray-800 font-medium">Processing transcript...</p>
+        </div>
+      </div>
+
       <div
         id="pause-controls"
         class="items-center h-[180px] w-full flex flex-col {{ 'bg-gray-300' if theme == 'light' else 'bg-gray-800 text-white' }}"
@@ -123,9 +136,6 @@
             </svg>
           </button>
         </div>
-        <!--         <div
-          class="pb-4 text-2xl h-1/4 w-full flex items-center justify-center"
-        ></div>-->
       </div>
       <div
         id="play-controls"
@@ -154,9 +164,6 @@
           </button>
           <button id="save-button" class="cursor-pointer">Save</button>
         </div>
-        <!--         <div
-        class="pb-4 text-2xl h-1/4 w-full flex items-center justify-center"
-      ></div>-->
       </div>
     </div>
   </body>
@@ -167,18 +174,20 @@
   const socket = io();
   const transcriptOutput = document.getElementById("transcript-output");
   const date = document.getElementById("date");
-  const next = document.getElementById("next");
   const pauseBtn = document.getElementById("pause-btn");
   const playBtn = document.getElementById("play-btn");
   const pauseControls = document.getElementById("pause-controls");
   const playControls = document.getElementById("play-controls");
   const saveButton = document.getElementById("save-button");
   const deleteButton = document.getElementById("delete-button");
+  const loadingOverlay = document.getElementById("loading-overlay");
 
   let isRecording = true;
   let hasTranscript = false;
   let originalTranscript = "";
   let formattedTranscript = "";
+  let transcriptRequestPending = false;
+  let saveInProgress = false;
 
   const today = new Date();
   const options = {
@@ -218,36 +227,60 @@
 
   // Display the partial transcript in real-time
   socket.on("partial_transcript", (data) => {
-    transcriptOutput.innerHTML = `<p>${data.text}</p>`;
-    originalTranscript = data.text; // Store the original transcript
+    transcriptOutput.innerHTML = `<p>${originalTranscript + data.text}</p>`;
   });
 
-  // Display the formatted transcript when available
+  // Display the transcript in real-time
+  socket.on("transcript", (data) => {
+    originalTranscript += data.text; // Store the original transcript
+    transcriptOutput.innerHTML = `<p>${originalTranscript}</p>`;
+  });
+
+  // Handle formatted transcript when available
   socket.on("formatted_transcript", (data) => {
-    //formattedTranscript = data.text; // Store the formatted transcript
-    // transcriptOutput.innerHTML = formattedTranscript;
+    formattedTranscript = data.text; // Store the formatted transcript
     hasTranscript = true;
+
+    // If save was initiated and we were waiting for the formatted transcript
+    if (saveInProgress) {
+      completeTranscriptSave();
+    }
   });
 
   // Save transcript function
-  function saveTranscript(title, user) {
-    if (!hasTranscript) {
-      alert("No transcript available to save.");
-      return;
-    }
+  function saveTranscript() {
+    saveInProgress = true;
 
+    // Show loading overlay
+    loadingOverlay.classList.remove("hidden");
+
+    // If we already have a formatted transcript, proceed with saving
+    if (hasTranscript) {
+      completeTranscriptSave();
+    } else {
+      // Request formatted transcript from server
+      socket.emit("save_transcript");
+      // The formatted_transcript event handler will call completeTranscriptSave when ready
+    }
+  }
+
+  // Function to complete the save process
+  function completeTranscriptSave() {
     fetch("/transcripts/save", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        title: title,
-        user: user,
+        title: currentTitle,
+        user: currentUser,
       }),
     })
       .then((response) => response.json())
       .then((data) => {
+        loadingOverlay.classList.add("hidden");
+        saveInProgress = false;
+
         if (data.success) {
           // Redirect to archive page after successful save
           window.location.href = "archive";
@@ -256,6 +289,8 @@
         }
       })
       .catch((error) => {
+        loadingOverlay.classList.add("hidden");
+        saveInProgress = false;
         console.error("Error:", error);
         alert("Failed to save transcript. Please try again.");
       });
@@ -263,17 +298,20 @@
 
   // Add event listener for save button
   saveButton.addEventListener("click", () => {
-    if (hasTranscript) {
-      saveTranscript(currentTitle, currentUser);
-    } else {
+    // Check if we have some content to save
+    if (originalTranscript.trim() === "") {
       alert("No transcript available to save. Please record something first.");
+      return;
     }
+
+    saveTranscript();
   });
 
   // Add event listener for delete button
   deleteButton.addEventListener("click", () => {
     window.location.href = "/home";
   });
+
   // Update the current time
   function updateTime() {
     const now = new Date();

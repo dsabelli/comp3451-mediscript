@@ -1,8 +1,0 @@
-{
-  "id": "1745255000",
-  "title": "dr. dan",
-  "original_text": "And we're just doing a test of the metascript system. It looks like it didn't. Pick up what I said at first. So this is Dr. Dan, and we have patient. Sarah Sibelli. We're going to talk today about your Ms.",
-  "formatted_text": "Here's the processed and formatted transcript with a summary:\n\nDr. Dan: And we're just doing a test of the metascript system. It looks like it didn't pick up what I said at first. So this is Dr. Dan, and we have patient <span style=\"color: red;\">Sarah Sibelli</span>. We're going to talk today about your <strong>MS</strong>.\n\nSummary:\n- Key Diagnoses:\n  \u2022 <strong>Multiple Sclerosis (MS)</strong>\n\n- Medications:\n  \u2022 None mentioned\n\n- Patient Instructions:\n  \u2022 None mentioned\n\n- Follow-up Plans:\n  \u2022 Discussion about the patient's <strong>MS</strong> scheduled\n\nNote: This transcript appears to be the beginning of a medical consultation. More detailed information would likely follow in a complete conversation.",
-  "user": "maria.sabelli@yahoo.com",
-  "created_at": "2025-04-21T13:03:20.928967"
-}

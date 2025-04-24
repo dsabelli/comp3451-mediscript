@@ -19,13 +19,18 @@ def save_transcript(title, user, original_text, formatted_text):
     file_path = os.path.join(Config.TRANSCRIPTS_DIR, file_name)
 
     # Create transcript data
+    created_at = datetime.now()
+    formatted_date = created_at.strftime("%a, %b %d, %Y, %I:%M %p")  # Format the date
+
+    # Create transcript data
     transcript_data = {
         "id": transcript_id,
         "title": title,
         "original_text": original_text,
         "formatted_text": formatted_text,
         "user": user,
-        "created_at": datetime.now().isoformat(),
+        "created_at": formatted_date,
+        "timestamp": datetime.now().isoformat(),
     }
 
     # Save to file
@@ -56,5 +61,5 @@ def get_all_transcripts():
                 transcripts.append(json.load(f))
 
     # Sort by created_at (newest first)
-    transcripts.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+    transcripts.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
     return transcripts

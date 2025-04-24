@@ -169,47 +169,47 @@
       setInterval(updateTime, 60000); // Update every minute
 
       // Share functionality
-      document.getElementById("share-btn").addEventListener("click", (e) => {
-        e.preventDefault();
-        // Using Web Share API if available
-        if (navigator.share) {
-          navigator
-            .share({
-              title: "{{ transcript.title }}",
-              text: "Check out this medical transcript!",
-              url: window.location.href,
-            })
-            .catch((err) => console.error("Error sharing:", err));
-        } else {
-          alert("Sharing functionality not available on this browser.");
-        }
-      });
+      //    document.getElementById("share-btn").addEventListener("click", (e) => {
+      //      e.preventDefault();
+      //       // Using Web Share API if available
+      //       if (navigator.share) {
+      //         navigator
+      //           .share({
+      //             title: "{{ transcript.title }}",
+      //             text: "Check out this medical transcript!",
+      //             url: window.location.href,
+      //           })
+      //           .catch((err) => console.error("Error sharing:", err));
+      //        } else {
+      //         alert("Sharing functionality not available on this browser.");
+      //        }
+      //     });
 
       // Download functionality
-      document.getElementById("download-btn").addEventListener("click", (e) => {
-        e.preventDefault();
-        const activeTab = document.querySelector(".tab-content.active").id;
-        let content = "";
-        let filename = "";
-
-        if (activeTab === "formatted-tab") {
-          content = document.querySelector(".formatted-transcript").innerText;
-          filename = "{{ transcript.title }}_formatted.txt";
-        } else {
-          content = document.querySelector(".original-transcript").innerText;
-          filename = "{{ transcript.title }}_original.txt";
-        }
-
-        const blob = new Blob([content], { type: "text/plain" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      });
+      //     document.getElementById("download-btn").addEventListener("click", (e) => {
+      //       e.preventDefault();
+      //       const activeTab = document.querySelector(".tab-content.active").id;
+      //       let content = "";
+      //       let filename = "";
+      //
+      //      if (activeTab === "formatted-tab") {
+      //         content = document.querySelector(".formatted-transcript").innerText;
+      //         filename = "{{ transcript.title }}_formatted.txt";
+      //       } else {
+      //          content = document.querySelector(".original-transcript").innerText;
+      //          filename = "{{ transcript.title }}_original.txt";
+      //        }
+      //
+      //       const blob = new Blob([content], { type: "text/plain" });
+      //       const url = URL.createObjectURL(blob);
+      //        const a = document.createElement("a");
+      //        a.href = url;
+      //        a.download = filename;
+      //        document.body.appendChild(a);
+      //        a.click();
+      //        document.body.removeChild(a);
+      //        URL.revokeObjectURL(url);
+      //     });
     </script>
   </body>
 </html>
