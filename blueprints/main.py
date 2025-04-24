@@ -1,3 +1,5 @@
+# Daniel Sabelli - T00743378 - COMP 3451 Assignment 4
+
 from flask import Blueprint, jsonify, redirect, render_template, url_for, flash, request
 
 from models.transcripts import get_all_transcripts
@@ -8,12 +10,13 @@ main_bp = Blueprint("main", __name__)
 
 @main_bp.route("/")
 def root():
-    # Redirect the root URL to the login page
+    """Redirect the root URL to the login page."""
     return redirect(url_for("main.login"))
 
 
 @main_bp.route("/home")
 def index():
+    """Render the home page, displaying overview data including the next upcoming appointment."""
     # For the home page, you might want to show some overview data
     # You can import and use your appointment functions here
     from models.appointments import get_all_appointments
@@ -31,17 +34,20 @@ def index():
 
 @main_bp.route("/login")
 def login():
+    """Render the login page."""
     return render_template("main/login.html")
 
 
 @main_bp.route("/search")
 def search():
+    """Render the search page."""
     return render_template("main/search.html")
 
 
 # If you have search functionality in your main blueprint
 @main_bp.route("/api/search")
 def search_endpoint():
+    """API endpoint to perform a search and return results as JSON."""
     keyword = request.args.get("keyword", "")
 
     if not keyword:

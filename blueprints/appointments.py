@@ -1,5 +1,8 @@
-from collections import OrderedDict
+# Daniel Sabelli - T00743378 - COMP 3451 Assignment 4
+
 from datetime import datetime
+from collections import OrderedDict
+
 from flask import Blueprint, render_template, jsonify, request
 
 from models.appointments import (
@@ -17,6 +20,7 @@ appointment_bp = Blueprint("appointments", __name__, url_prefix="/appointments")
 # Use appointment_bp.route instead of app.route
 @appointment_bp.route("/")
 def appointments():
+    """Render the appointments page, displaying appointments grouped by month."""
     # Fetch appointments from your database
     appointments = get_all_appointments()
 
@@ -58,6 +62,7 @@ def appointments():
 # API endpoint to save appointment - use the blueprint decorator
 @appointment_bp.route("/save", methods=["POST"])
 def save_appointment_endpoint():
+    """API endpoint to save a new appointment."""
     data = request.json
     title = data.get("title")
     date = data.get("date")
@@ -89,6 +94,7 @@ def save_appointment_endpoint():
 
 @appointment_bp.route("/view/<appointment_id>")
 def view_appointment(appointment_id):
+    """Render a page to view a single appointment."""
     appointment = get_appointment(appointment_id)
     if not appointment:
         return "Appointment not found", 404
@@ -99,6 +105,7 @@ def view_appointment(appointment_id):
 
 @appointment_bp.route("/delete/<appointment_id>", methods=["DELETE"])
 def delete_appointment_endpoint(appointment_id):
+    """API endpoint to delete an appointment."""
     success = delete_appointment(appointment_id)
     if success:
         return jsonify({"success": True})
@@ -108,6 +115,7 @@ def delete_appointment_endpoint(appointment_id):
 
 @appointment_bp.route("/update/<appointment_id>", methods=["PUT"])
 def update_appointment_endpoint(appointment_id):
+    """API endpoint to update an existing appointment."""
     data = request.json
     title = data.get("title")
     date = data.get("date")

@@ -1,3 +1,5 @@
+# Daniel Sabelli - T00743378 - COMP 3451 Assignment 4
+
 from collections import OrderedDict
 from datetime import datetime
 from flask import Blueprint, current_app, render_template, jsonify, request
@@ -9,11 +11,13 @@ transcript_bp = Blueprint("transcripts", __name__, url_prefix="/transcripts")
 
 @transcript_bp.route("/")
 def transcript():
+    """Render the main transcript page."""
     return render_template("transcripts/transcript.html")
 
 
 @transcript_bp.route("/archive")
 def archive():
+    """Render the transcript archive page, displaying all saved transcripts."""
     transcripts = get_all_transcripts()
     return render_template("transcripts/archive.html", transcripts=transcripts)
 
@@ -21,6 +25,7 @@ def archive():
 # API endpoint to save transcript
 @transcript_bp.route("/save", methods=["POST"])
 def save_transcript_endpoint():
+    """API endpoint to save a transcript."""
     data = request.json
     title = data.get("title")
     user = data.get("user")
@@ -49,6 +54,7 @@ def save_transcript_endpoint():
 
 @transcript_bp.route("/view/<transcript_id>")
 def view_transcript(transcript_id):
+    """Render a page to view a single transcript."""
     transcript = get_transcript(transcript_id)
     if not transcript:
         return "Transcript not found", 404

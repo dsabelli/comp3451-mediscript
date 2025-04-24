@@ -1,3 +1,5 @@
+# Daniel Sabelli - T00743378 - COMP 3451 Assignment 4
+
 import os
 import json
 import time
