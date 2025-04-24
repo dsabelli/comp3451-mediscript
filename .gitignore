@@ -1,2 +1,4 @@
 node_modules
-constant.py
+constants.py
+__pycache__
+data

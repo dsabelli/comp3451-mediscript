@@ -1,166 +1,44 @@
-from flask import (
-    Flask,
-    redirect,
-    render_template,
-    request,
-    jsonify,
-    url_for,
-    session,
-    flash,
-)
-from flask_socketio import SocketIO, emit
+# app.py
+from flask import Flask
+from extensions import socketio
+from blueprints.main import main_bp
+from blueprints.transcripts import transcript_bp
+from blueprints.appointments import appointment_bp
+from blueprints.settings import settings_bp
+import config
+
+
+def create_app(config_object=config.Development):
+    app = Flask(__name__)
+    app.config.from_object(config_object)
+
+    # Initialize extensions
+    socketio.init_app(app)
+
+    # Register blueprints
+    app.register_blueprint(main_bp)
+    app.register_blueprint(transcript_bp)
+    app.register_blueprint(appointment_bp)
+    app.register_blueprint(settings_bp)
+
+    return app
+
+
+app = create_app()
+
+
 import assemblyai as aai
 import threading
+from extensions import socketio
 import asyncio
-import os
-import json
-import time
-from datetime import datetime, timedelta
-from collections import OrderedDict
+from constants import assemblyai_api_key, prompt_script
 
-
-from constants import assemblyai_api_key, flask_secret_key
-
-app = Flask(__name__)
-app.secret_key = flask_secret_key
-socketio = SocketIO(app)
 
 aai.settings.api_key = assemblyai_api_key
+prompt = prompt_script
 transcriber = None
 session_id = None
 transcriber_lock = threading.Lock()
-# File storage paths
-DATA_DIR = "data"
-TRANSCRIPTS_DIR = os.path.join(DATA_DIR, "transcripts")
-USERS_FILE = os.path.join(DATA_DIR, "users.json")
-SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
-APPOINTMENTS_DIR = os.path.join(DATA_DIR, "appointments")
-
-
-# Create directories if they don't exist
-os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
-os.makedirs(APPOINTMENTS_DIR, exist_ok=True)
-
-
-prompt = """You are a medical transcript analyzer. Your task is to process medical transcripts following these guidelines:
-
-1. SPEAKER IDENTIFICATION:
-   - Clearly label each speaker (e.g., "Dr. Smith:", "Patient:", "Nurse:") at the beginning of their dialogue
-   - Maintain consistent labeling throughout the transcript
-
-2. TEXT FORMATTING:
-   Apply formatting to words/phrases that fit into the following categories:
-   - Protected Health Information (PHI): Change the font color to red using <span style="color: red;">...</span>
-     Examples: patient names, ages, nationalities, gender identities, organizations
-   - Medical Condition/History: Bold the text using <strong>...</strong>
-     Examples: illnesses, diseases, symptoms, or conditions
-   - Anatomy: Italicize the text using <em>...</em>
-     Examples: body parts or anatomical locations
-   - Medication: Bold the text using <strong>...</strong>
-     Examples: prescribed drugs, over-the-counter medications, vitamins, supplements
-   - Tests, Treatments, & Procedures: Bold the text using <strong>...</strong>
-     Examples: medical tests, treatments, procedures performed or recommended
-
-3. SUMMARY CREATION:
-   After the formatted transcript, create a bulleted summary section with these categories:
-   - Key Diagnoses: List all diagnosed conditions mentioned
-   - Medications: List all medications discussed (current, new, or discontinued)
-   - Patient Instructions: Summarize any instructions given to the patient
-   - Follow-up Plans: Note any scheduled appointments or recommended follow-ups
-
-Process the transcript by:
-1. Using AssemblyAI's detected entities as a starting point for formatting
-2. Identifying and formatting any additional relevant items not detected by the AI
-3. Creating the comprehensive summary section
-4. Returning the formatted transcript with the summary section
-
-Maintain the original flow and meaning of the transcript while applying these enhancements.
-"""
-
-# Initialize settings file if it doesn't exist
-if not os.path.exists(SETTINGS_FILE):
-    default_settings = {"theme": "light"}
-    with open(SETTINGS_FILE, "w") as f:
-        json.dump(default_settings, f, indent=4)
-
-
-def get_settings():
-    try:
-        with open(SETTINGS_FILE, "r") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        # If settings file is corrupted or missing, return defaults
-        default_settings = {"theme": "light"}
-        with open(SETTINGS_FILE, "w") as f:
-            json.dump(default_settings, f, indent=4)
-        return default_settings
-
-
-def save_settings(settings):
-    try:
-        with open(SETTINGS_FILE, "w") as f:
-            json.dump(settings, f, indent=4)
-        return True
-    except Exception as e:
-        print(f"Error saving settings: {e}")
-        return False
-
-
-# File operations for transcripts
-def save_transcript(title, user, original_text, formatted_text):
-    """Save transcript to a text file"""
-    # Generate unique ID based on timestamp
-    timestamp = int(time.time())
-    transcript_id = f"{timestamp}"
-
-    # Create file path
-    file_name = f"{transcript_id}_{title.replace(' ', '_')}.json"
-    file_path = os.path.join(TRANSCRIPTS_DIR, file_name)
-
-    now = datetime.now()
-    created_at = now.strftime("%B %d, %Y %I:%M %p")
-
-    # Create transcript data
-    transcript_data = {
-        "id": transcript_id,
-        "title": title,
-        "original_text": original_text,
-        "formatted_text": formatted_text,
-        "user": user,
-        "created_at": created_at,
-        "timestamp": datetime.now().isoformat(),
-    }
-
-    # Save to file
-    with open(file_path, "w") as f:
-        json.dump(transcript_data, f, indent=2)
-
-    return transcript_id
-
-
-def get_transcript(transcript_id):
-    """Retrieve a transcript by ID"""
-    # Look for file with matching ID
-    for filename in os.listdir(TRANSCRIPTS_DIR):
-        if filename.startswith(transcript_id):
-            file_path = os.path.join(TRANSCRIPTS_DIR, filename)
-            with open(file_path, "r") as f:
-                return json.load(f)
-    return None
-
-
-def get_all_transcripts():
-    """Retrieve all transcripts"""
-    transcripts = []
-    for filename in os.listdir(TRANSCRIPTS_DIR):
-        if filename.endswith(".json"):
-            file_path = os.path.join(TRANSCRIPTS_DIR, filename)
-            with open(file_path, "r") as f:
-                transcripts.append(json.load(f))
-
-    # Sort by created_at (newest first)
-    transcripts.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-    return transcripts
 
 
 def on_open(session_opened: aai.RealtimeSessionOpened):
@@ -221,371 +99,23 @@ def transcribe_real_time():
     transcriber.stream(microphone_stream)
 
 
-@app.route("/")
-def root():
-    # Redirect the root URL to the login page
-    return redirect(url_for("login"))
-
-
-@app.route("/home")
-def index():
-    # Fetch all appointments
-    appointments = get_all_appointments()
-
-    # Get the next upcoming appointment
-    next_appointment = None
-    if appointments:
-        next_appointment = appointments[0]
-
-    return render_template("index.html", next_appointment=next_appointment)
-
-
-@app.route("/login")
-def login():
-    return render_template("login.html")
-
-
-@app.route("/transcript")
-def transcript():
-    return render_template("transcript.html")
-
-
-@app.route("/search")
-def search():
-    return render_template("search.html")
-
-
-def search_transcripts(keyword):
-    """Search transcripts for a specific keyword"""
-    results = []
-
-    # Convert keyword to lowercase for case-insensitive search
-    keyword = keyword.lower()
-
-    for filename in os.listdir(TRANSCRIPTS_DIR):
-        if filename.endswith(".json"):
-            file_path = os.path.join(TRANSCRIPTS_DIR, filename)
-            with open(file_path, "r") as f:
-                transcript = json.load(f)
-
-                # Check if keyword is in title or original text
-                if (
-                    keyword in transcript.get("title", "").lower()
-                    or keyword in transcript.get("original_text", "").lower()
-                ):
-                    results.append(transcript)
-
-    # Sort by created_at (newest first)
-    results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-    return results
-
-
-@app.route("/api/search")
-def search_endpoint():
-    keyword = request.args.get("keyword", "")
-
-    if not keyword:
-        return jsonify({"error": "No keyword provided"}), 400
-
-    results = search_transcripts(keyword)
-
-    return jsonify({"transcripts": results})
-
-
-@app.route("/archive")
-def archive():
-    transcripts = get_all_transcripts()
-    return render_template("archive.html", transcripts=transcripts)
-
-
-@app.route("/settings", methods=["GET", "POST"])
-def settings():
-    if request.method == "POST":
-        current_settings = get_settings()
-
-        # Update theme
-        theme = request.form.get("theme", "light")
-        current_settings["theme"] = theme
-
-        if save_settings(current_settings):
-            flash("Settings saved successfully!", "success")
-        else:
-            flash("Failed to save settings.", "error")
-
-        return redirect(url_for("settings"))
-
-    # GET request
-    settings = get_settings()
-    return render_template("settings.html", settings=settings)
-
-
-# make the theme available in all templates
-@app.context_processor
-def inject_settings():
-    settings = get_settings()
-    return dict(theme=settings["theme"])
-
-
-@app.route("/appointments")
-def appointments():
-    # Fetch appointments from your database
-    appointments = get_all_appointments()  # Your existing function
-
-    # Group appointments by month
-    appointments_by_month = {}
-
-    for appointment in appointments:
-        # Parse the date from your appointment
-        # Using dictionary access instead of attribute access
-        date_str = appointment["date"]  # Change this line
-        date_obj = datetime.strptime(date_str, "%a, %b %d, %Y, %I:%M %p")
-        month_year = date_obj.strftime("%B %Y")  # "April 2025"
-
-        if month_year not in appointments_by_month:
-            appointments_by_month[month_year] = []
-
-        appointments_by_month[month_year].append(appointment)
-
-    # Sort the months chronologically
-    sorted_appointments = OrderedDict()
-
-    # Get list of (month_year, date_obj) tuples for sorting
-    month_dates = []
-    for month_year in appointments_by_month:
-        # Extract first date of month for sorting
-        first_date = datetime.strptime(month_year, "%B %Y")
-        month_dates.append((month_year, first_date))
-
-    # Sort by date
-    sorted_month_dates = sorted(month_dates, key=lambda x: x[1])
-
-    # Create ordered dictionary
-    for month_year, _ in sorted_month_dates:
-        sorted_appointments[month_year] = appointments_by_month[month_year]
-
-    return render_template(
-        "appointments.html", appointments_by_month=sorted_appointments
-    )
-
-
-# File operations for appointments
-def save_appointment(title, date, description, user):
-    """Save appointment to a JSON file"""
-    # Generate unique ID based on timestamp
-    timestamp = int(time.time())
-    appointment_id = f"{timestamp}"
-
-    # Create file path
-    file_name = f"{appointment_id}.json"
-    file_path = os.path.join(APPOINTMENTS_DIR, file_name)
-
-    # Create appointment data
-    appointment_data = {
-        "id": appointment_id,
-        "title": title,
-        "date": date,
-        "description": description,
-        "user": user,
-        "created_at": datetime.now().isoformat(),
-    }
-
-    # Save to file
-    with open(file_path, "w") as f:
-        json.dump(appointment_data, f, indent=2)
-
-    return appointment_id
-
-
-def get_appointment(appointment_id):
-    """Retrieve an appointment by ID"""
-    file_path = os.path.join(APPOINTMENTS_DIR, f"{appointment_id}.json")
-    if os.path.exists(file_path):
-        with open(file_path, "r") as f:
-            return json.load(f)
-    return None
-
-
-def get_all_appointments():
-    """Retrieve all appointments"""
-    appointments = []
-    for filename in os.listdir(APPOINTMENTS_DIR):
-        if filename.endswith(".json"):
-            file_path = os.path.join(APPOINTMENTS_DIR, filename)
-            with open(file_path, "r") as f:
-                appointments.append(json.load(f))
-
-    # Sort by appointment date (upcoming first)
-    def get_date_for_sorting(appointment):
-        try:
-            date_str = appointment.get("date", "")
-            if date_str:
-                return datetime.strptime(date_str, "%a, %b %d, %Y, %I:%M %p")
-            return datetime.max  # For appointments without dates
-        except ValueError:
-            return datetime.max  # In case of date parsing errors
-
-    appointments.sort(key=get_date_for_sorting)
-    return appointments
-
-
-# API endpoint to save appointment
-@app.route("/save-appointment", methods=["POST"])
-def save_appointment_endpoint():
-    data = request.json
-    title = data.get("title")
-    date = data.get("date")
-    description = data.get("description", "")
-    user = data.get("user")
-
-    if not title:
-        return jsonify({"error": "Title is required"}), 400
-    if not date:
-        return jsonify({"error": "Date is required"}), 400
-    if not user:
-        return jsonify({"error": "User is required"}), 400
-
-    appointment_id = save_appointment(
-        title=title, date=date, description=description, user=user
-    )
-
-    return jsonify(
-        {
-            "success": True,
-            "id": appointment_id,
-            "title": title,
-            "date": date,
-            "description": description,
-            "user": user,
-        }
-    )
-
-
-@app.route("/view-appointment/<appointment_id>")
-def view_appointment(appointment_id):
-    appointment = get_appointment(appointment_id)
-    if not appointment:
-        return "Appointment not found", 404
-    return render_template("view_appointment.html", appointment=appointment)
-
-
-def delete_appointment(appointment_id):
-    """Delete an appointment by ID"""
-    file_path = os.path.join(APPOINTMENTS_DIR, f"{appointment_id}.json")
-    if os.path.exists(file_path):
-        os.remove(file_path)
-        return True
-    return False
-
-
-@app.route("/delete-appointment/<appointment_id>", methods=["DELETE"])
-def delete_appointment_endpoint(appointment_id):
-    success = delete_appointment(appointment_id)
-    if success:
-        return jsonify({"success": True})
-    else:
-        return jsonify({"success": False, "error": "Appointment not found"}), 404
-
-
-def update_appointment(appointment_id, title, date, description, user):
-    """Update an existing appointment"""
-    file_path = os.path.join(APPOINTMENTS_DIR, f"{appointment_id}.json")
-
-    if not os.path.exists(file_path):
-        return False, "Appointment not found"
-
-    # Get existing appointment data
-    with open(file_path, "r") as f:
-        appointment_data = json.load(f)
-
-    # Update fields
-    appointment_data["title"] = title
-    appointment_data["date"] = date
-    appointment_data["description"] = description
-    appointment_data["user"] = user
-    appointment_data["updated_at"] = datetime.now().isoformat()
-
-    # Save updated appointment
-    with open(file_path, "w") as f:
-        json.dump(appointment_data, f, indent=2)
-
-    return True, appointment_data
-
-
-@app.route("/update-appointment/<appointment_id>", methods=["PUT"])
-def update_appointment_endpoint(appointment_id):
-    data = request.json
-    title = data.get("title")
-    date = data.get("date")
-    description = data.get("description", "")
-    user = data.get("user")
-
-    if not title:
-        return jsonify({"error": "Title is required"}), 400
-    if not date:
-        return jsonify({"error": "Date is required"}), 400
-    if not user:
-        return jsonify({"error": "User is required"}), 400
-
-    success, result = update_appointment(
-        appointment_id=appointment_id,
-        title=title,
-        date=date,
-        description=description,
-        user=user,
-    )
-
-    if success:
-        return jsonify({"success": True, "appointment": result})
-    else:
-        return jsonify({"success": False, "error": result}), 404
-
-
-# API endpoint to save transcript
-@app.route("/save-transcript", methods=["POST"])
-def save_transcript_endpoint():
-    data = request.json
-    title = data.get("title")
-    user = data.get("user")
-
-    if not title:
-        return jsonify({"error": "Title is required"}), 400
-    if not user:
-        return jsonify({"error": "User is required"}), 400
-
-    # Get transcript from app config
-    original_text = app.config.get("CURRENT_TRANSCRIPT", "")
-    formatted_text = app.config.get("CURRENT_FORMATTED_TRANSCRIPT", "")
-
-    if not original_text or not formatted_text:
-        return jsonify({"error": "No transcript available to save"}), 400
-
-    transcript_id = save_transcript(
-        title=title,
-        user=user,
-        original_text=original_text,
-        formatted_text=formatted_text,
-    )
-
-    return jsonify({"success": True, "id": transcript_id, "title": title, "user": user})
-
-
-@app.route("/view-transcript/<transcript_id>")
-def view_transcript(transcript_id):
-    transcript = get_transcript(transcript_id)
-    if not transcript:
-        return "Transcript not found", 404
-    return render_template("view_transcript.html", transcript=transcript)
-
-
 @socketio.on("toggle_transcription")
 def handle_toggle_transcription(data=None):
     global transcriber, session_id
+
+    # Add debugging
+    print(f"Received toggle_transcription event with data: {data}")
 
     # If data is provided, extract the title
     transcript_title = (
         data.get("title", "Untitled Transcript") if data else "Untitled Transcript"
     )
     print(f"Toggle transcription with title: {transcript_title}")
+
+    # Acknowledge receipt of the event
+    socketio.emit(
+        "toggle_transcription_response", {"received": True, "title": transcript_title}
+    )
 
     with transcriber_lock:
         if session_id:
@@ -598,9 +128,582 @@ def handle_toggle_transcription(data=None):
             print("Starting transcriber session")
             # Store the title in app config
             app.config["CURRENT_TRANSCRIPT_TITLE"] = transcript_title
-
             threading.Thread(target=transcribe_real_time).start()
 
 
 if __name__ == "__main__":
     socketio.run(app, port=6069, debug=True)
+
+
+# from flask import (
+#     Flask,
+#     redirect,
+#     render_template,
+#     request,
+#     jsonify,
+#     url_for,
+#     flash,
+# )
+# from flask_socketio import SocketIO, emit
+# import assemblyai as aai
+# import threading
+# import asyncio
+# import os
+# import json
+# import time
+# from datetime import datetime, timedelta
+# from collections import OrderedDict
+
+
+# from constants import assemblyai_api_key, flask_secret_key, prompt_script
+
+# app = Flask(__name__)
+# app.secret_key = flask_secret_key
+# socketio = SocketIO(app)
+
+# aai.settings.api_key = assemblyai_api_key
+# transcriber = None
+# session_id = None
+# transcriber_lock = threading.Lock()
+# # File storage paths
+# DATA_DIR = "data"
+# TRANSCRIPTS_DIR = os.path.join(DATA_DIR, "transcripts")
+# USERS_FILE = os.path.join(DATA_DIR, "users.json")
+# SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
+# APPOINTMENTS_DIR = os.path.join(DATA_DIR, "appointments")
+
+
+# # Create directories if they don't exist
+# os.makedirs(TRANSCRIPTS_DIR, exist_ok=True)
+# os.makedirs(APPOINTMENTS_DIR, exist_ok=True)
+
+
+# prompt = prompt_script
+
+# # Initialize settings file if it doesn't exist
+# if not os.path.exists(SETTINGS_FILE):
+#     default_settings = {"theme": "light"}
+#     with open(SETTINGS_FILE, "w") as f:
+#         json.dump(default_settings, f, indent=4)
+
+
+# def get_settings():
+#     try:
+#         with open(SETTINGS_FILE, "r") as f:
+#             return json.load(f)
+#     except (FileNotFoundError, json.JSONDecodeError):
+#         # If settings file is corrupted or missing, return defaults
+#         default_settings = {"theme": "light"}
+#         with open(SETTINGS_FILE, "w") as f:
+#             json.dump(default_settings, f, indent=4)
+#         return default_settings
+
+
+# def save_settings(settings):
+#     try:
+#         with open(SETTINGS_FILE, "w") as f:
+#             json.dump(settings, f, indent=4)
+#         return True
+#     except Exception as e:
+#         print(f"Error saving settings: {e}")
+#         return False
+
+
+# # File operations for transcripts
+# def save_transcript(title, user, original_text, formatted_text):
+#     """Save transcript to a text file"""
+#     # Generate unique ID based on timestamp
+#     timestamp = int(time.time())
+#     transcript_id = f"{timestamp}"
+
+#     # Create file path
+#     file_name = f"{transcript_id}_{title.replace(' ', '_')}.json"
+#     file_path = os.path.join(TRANSCRIPTS_DIR, file_name)
+
+#     now = datetime.now()
+#     created_at = now.strftime("%B %d, %Y %I:%M %p")
+
+#     # Create transcript data
+#     transcript_data = {
+#         "id": transcript_id,
+#         "title": title,
+#         "original_text": original_text,
+#         "formatted_text": formatted_text,
+#         "user": user,
+#         "created_at": created_at,
+#         "timestamp": datetime.now().isoformat(),
+#     }
+
+#     # Save to file
+#     with open(file_path, "w") as f:
+#         json.dump(transcript_data, f, indent=2)
+
+#     return transcript_id
+
+
+# def get_transcript(transcript_id):
+#     """Retrieve a transcript by ID"""
+#     # Look for file with matching ID
+#     for filename in os.listdir(TRANSCRIPTS_DIR):
+#         if filename.startswith(transcript_id):
+#             file_path = os.path.join(TRANSCRIPTS_DIR, filename)
+#             with open(file_path, "r") as f:
+#                 return json.load(f)
+#     return None
+
+
+# def get_all_transcripts():
+#     """Retrieve all transcripts"""
+#     transcripts = []
+#     for filename in os.listdir(TRANSCRIPTS_DIR):
+#         if filename.endswith(".json"):
+#             file_path = os.path.join(TRANSCRIPTS_DIR, filename)
+#             with open(file_path, "r") as f:
+#                 transcripts.append(json.load(f))
+
+#     # Sort by created_at (newest first)
+#     transcripts.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+#     return transcripts
+
+
+# def on_open(session_opened: aai.RealtimeSessionOpened):
+#     global session_id
+#     session_id = session_opened.session_id
+#     print("Session ID:", session_id)
+
+
+# def on_data(transcript: aai.RealtimeTranscript):
+#     if not transcript.text:
+#         return
+
+#     if isinstance(transcript, aai.RealtimeFinalTranscript):
+#         socketio.emit("transcript", {"text": transcript.text})
+#         asyncio.run(analyze_transcript(transcript.text))
+#     else:
+#         # Emit the partial transcript to be displayed in real-time
+#         socketio.emit("partial_transcript", {"text": transcript.text})
+
+
+# async def analyze_transcript(transcript):
+#     result = aai.Lemur().task(
+#         prompt, input_text=transcript, final_model=aai.LemurModel.claude3_5_sonnet
+#     )
+
+#     print("Emitting formatted transcript for:", transcript)
+#     # Store the transcript and formatted text in session variables
+#     app.config["CURRENT_TRANSCRIPT"] = transcript
+#     app.config["CURRENT_FORMATTED_TRANSCRIPT"] = result.response
+
+#     socketio.emit("formatted_transcript", {"text": result.response})
+
+
+# def on_error(error: aai.RealtimeError):
+#     print("An error occurred:", error)
+
+
+# def on_close():
+#     global session_id
+#     session_id = None
+#     print("Closing Session")
+
+
+# def transcribe_real_time():
+#     global transcriber
+#     transcriber = aai.RealtimeTranscriber(
+#         sample_rate=16_000,
+#         on_data=on_data,
+#         on_error=on_error,
+#         on_open=on_open,
+#         on_close=on_close,
+#         end_utterance_silence_threshold=5000,
+#     )
+
+#     transcriber.connect()
+
+#     microphone_stream = aai.extras.MicrophoneStream(sample_rate=16_000)
+#     transcriber.stream(microphone_stream)
+
+
+# @app.route("/")
+# def root():
+#     # Redirect the root URL to the login page
+#     return redirect(url_for("login"))
+
+
+# @app.route("/home")
+# def index():
+#     # Fetch all appointments
+#     appointments = get_all_appointments()
+
+#     # Get the next upcoming appointment
+#     next_appointment = None
+#     if appointments:
+#         next_appointment = appointments[0]
+
+#     return render_template("index.html", next_appointment=next_appointment)
+
+
+# @app.route("/login")
+# def login():
+#     return render_template("login.html")
+
+
+# @app.route("/transcript")
+# def transcript():
+#     return render_template("transcript.html")
+
+
+# @app.route("/search")
+# def search():
+#     return render_template("search.html")
+
+
+# def search_transcripts(keyword):
+#     """Search transcripts for a specific keyword"""
+#     results = []
+
+#     # Convert keyword to lowercase for case-insensitive search
+#     keyword = keyword.lower()
+
+#     for filename in os.listdir(TRANSCRIPTS_DIR):
+#         if filename.endswith(".json"):
+#             file_path = os.path.join(TRANSCRIPTS_DIR, filename)
+#             with open(file_path, "r") as f:
+#                 transcript = json.load(f)
+
+#                 # Check if keyword is in title or original text
+#                 if (
+#                     keyword in transcript.get("title", "").lower()
+#                     or keyword in transcript.get("original_text", "").lower()
+#                 ):
+#                     results.append(transcript)
+
+#     # Sort by created_at (newest first)
+#     results.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+#     return results
+
+
+# @app.route("/api/search")
+# def search_endpoint():
+#     keyword = request.args.get("keyword", "")
+
+#     if not keyword:
+#         return jsonify({"error": "No keyword provided"}), 400
+
+#     results = search_transcripts(keyword)
+
+#     return jsonify({"transcripts": results})
+
+
+# @app.route("/archive")
+# def archive():
+#     transcripts = get_all_transcripts()
+#     return render_template("archive.html", transcripts=transcripts)
+
+
+# @app.route("/settings", methods=["GET", "POST"])
+# def settings():
+#     if request.method == "POST":
+#         current_settings = get_settings()
+
+#         # Update theme
+#         theme = request.form.get("theme", "light")
+#         current_settings["theme"] = theme
+
+#         if save_settings(current_settings):
+#             flash("Settings saved successfully!", "success")
+#         else:
+#             flash("Failed to save settings.", "error")
+
+#         return redirect(url_for("settings"))
+
+#     # GET request
+#     settings = get_settings()
+#     return render_template("settings.html", settings=settings)
+
+
+# # make the theme available in all templates
+# @app.context_processor
+# def inject_settings():
+#     settings = get_settings()
+#     return dict(theme=settings["theme"])
+
+
+# @app.route("/appointments")
+# def appointments():
+#     # Fetch appointments from your database
+#     appointments = get_all_appointments()  # Your existing function
+
+#     # Group appointments by month
+#     appointments_by_month = {}
+
+#     for appointment in appointments:
+#         # Parse the date from your appointment
+#         # Using dictionary access instead of attribute access
+#         date_str = appointment["date"]  # Change this line
+#         date_obj = datetime.strptime(date_str, "%a, %b %d, %Y, %I:%M %p")
+#         month_year = date_obj.strftime("%B %Y")  # "April 2025"
+
+#         if month_year not in appointments_by_month:
+#             appointments_by_month[month_year] = []
+
+#         appointments_by_month[month_year].append(appointment)
+
+#     # Sort the months chronologically
+#     sorted_appointments = OrderedDict()
+
+#     # Get list of (month_year, date_obj) tuples for sorting
+#     month_dates = []
+#     for month_year in appointments_by_month:
+#         # Extract first date of month for sorting
+#         first_date = datetime.strptime(month_year, "%B %Y")
+#         month_dates.append((month_year, first_date))
+
+#     # Sort by date
+#     sorted_month_dates = sorted(month_dates, key=lambda x: x[1])
+
+#     # Create ordered dictionary
+#     for month_year, _ in sorted_month_dates:
+#         sorted_appointments[month_year] = appointments_by_month[month_year]
+
+#     return render_template(
+#         "appointments.html", appointments_by_month=sorted_appointments
+#     )
+
+
+# # File operations for appointments
+# def save_appointment(title, date, description, user):
+#     """Save appointment to a JSON file"""
+#     # Generate unique ID based on timestamp
+#     timestamp = int(time.time())
+#     appointment_id = f"{timestamp}"
+
+#     # Create file path
+#     file_name = f"{appointment_id}.json"
+#     file_path = os.path.join(APPOINTMENTS_DIR, file_name)
+
+#     # Create appointment data
+#     appointment_data = {
+#         "id": appointment_id,
+#         "title": title,
+#         "date": date,
+#         "description": description,
+#         "user": user,
+#         "created_at": datetime.now().isoformat(),
+#     }
+
+#     # Save to file
+#     with open(file_path, "w") as f:
+#         json.dump(appointment_data, f, indent=2)
+
+#     return appointment_id
+
+
+# def get_appointment(appointment_id):
+#     """Retrieve an appointment by ID"""
+#     file_path = os.path.join(APPOINTMENTS_DIR, f"{appointment_id}.json")
+#     if os.path.exists(file_path):
+#         with open(file_path, "r") as f:
+#             return json.load(f)
+#     return None
+
+
+# def get_all_appointments():
+#     """Retrieve all appointments"""
+#     appointments = []
+#     for filename in os.listdir(APPOINTMENTS_DIR):
+#         if filename.endswith(".json"):
+#             file_path = os.path.join(APPOINTMENTS_DIR, filename)
+#             with open(file_path, "r") as f:
+#                 appointments.append(json.load(f))
+
+#     # Sort by appointment date (upcoming first)
+#     def get_date_for_sorting(appointment):
+#         try:
+#             date_str = appointment.get("date", "")
+#             if date_str:
+#                 return datetime.strptime(date_str, "%a, %b %d, %Y, %I:%M %p")
+#             return datetime.max  # For appointments without dates
+#         except ValueError:
+#             return datetime.max  # In case of date parsing errors
+
+#     appointments.sort(key=get_date_for_sorting)
+#     return appointments
+
+
+# # API endpoint to save appointment
+# @app.route("/save-appointment", methods=["POST"])
+# def save_appointment_endpoint():
+#     data = request.json
+#     title = data.get("title")
+#     date = data.get("date")
+#     description = data.get("description", "")
+#     user = data.get("user")
+
+#     if not title:
+#         return jsonify({"error": "Title is required"}), 400
+#     if not date:
+#         return jsonify({"error": "Date is required"}), 400
+#     if not user:
+#         return jsonify({"error": "User is required"}), 400
+
+#     appointment_id = save_appointment(
+#         title=title, date=date, description=description, user=user
+#     )
+
+#     return jsonify(
+#         {
+#             "success": True,
+#             "id": appointment_id,
+#             "title": title,
+#             "date": date,
+#             "description": description,
+#             "user": user,
+#         }
+#     )
+
+
+# @app.route("/view-appointment/<appointment_id>")
+# def view_appointment(appointment_id):
+#     appointment = get_appointment(appointment_id)
+#     if not appointment:
+#         return "Appointment not found", 404
+#     return render_template("view_appointment.html", appointment=appointment)
+
+
+# def delete_appointment(appointment_id):
+#     """Delete an appointment by ID"""
+#     file_path = os.path.join(APPOINTMENTS_DIR, f"{appointment_id}.json")
+#     if os.path.exists(file_path):
+#         os.remove(file_path)
+#         return True
+#     return False
+
+
+# @app.route("/delete-appointment/<appointment_id>", methods=["DELETE"])
+# def delete_appointment_endpoint(appointment_id):
+#     success = delete_appointment(appointment_id)
+#     if success:
+#         return jsonify({"success": True})
+#     else:
+#         return jsonify({"success": False, "error": "Appointment not found"}), 404
+
+
+# def update_appointment(appointment_id, title, date, description, user):
+#     """Update an existing appointment"""
+#     file_path = os.path.join(APPOINTMENTS_DIR, f"{appointment_id}.json")
+
+#     if not os.path.exists(file_path):
+#         return False, "Appointment not found"
+
+#     # Get existing appointment data
+#     with open(file_path, "r") as f:
+#         appointment_data = json.load(f)
+
+#     # Update fields
+#     appointment_data["title"] = title
+#     appointment_data["date"] = date
+#     appointment_data["description"] = description
+#     appointment_data["user"] = user
+#     appointment_data["updated_at"] = datetime.now().isoformat()
+
+#     # Save updated appointment
+#     with open(file_path, "w") as f:
+#         json.dump(appointment_data, f, indent=2)
+
+#     return True, appointment_data
+
+
+# @app.route("/update-appointment/<appointment_id>", methods=["PUT"])
+# def update_appointment_endpoint(appointment_id):
+#     data = request.json
+#     title = data.get("title")
+#     date = data.get("date")
+#     description = data.get("description", "")
+#     user = data.get("user")
+
+#     if not title:
+#         return jsonify({"error": "Title is required"}), 400
+#     if not date:
+#         return jsonify({"error": "Date is required"}), 400
+#     if not user:
+#         return jsonify({"error": "User is required"}), 400
+
+#     success, result = update_appointment(
+#         appointment_id=appointment_id,
+#         title=title,
+#         date=date,
+#         description=description,
+#         user=user,
+#     )
+
+#     if success:
+#         return jsonify({"success": True, "appointment": result})
+#     else:
+#         return jsonify({"success": False, "error": result}), 404
+
+
+# # API endpoint to save transcript
+# @app.route("/save-transcript", methods=["POST"])
+# def save_transcript_endpoint():
+#     data = request.json
+#     title = data.get("title")
+#     user = data.get("user")
+
+#     if not title:
+#         return jsonify({"error": "Title is required"}), 400
+#     if not user:
+#         return jsonify({"error": "User is required"}), 400
+
+#     # Get transcript from app config
+#     original_text = app.config.get("CURRENT_TRANSCRIPT", "")
+#     formatted_text = app.config.get("CURRENT_FORMATTED_TRANSCRIPT", "")
+
+#     if not original_text or not formatted_text:
+#         return jsonify({"error": "No transcript available to save"}), 400
+
+#     transcript_id = save_transcript(
+#         title=title,
+#         user=user,
+#         original_text=original_text,
+#         formatted_text=formatted_text,
+#     )
+
+#     return jsonify({"success": True, "id": transcript_id, "title": title, "user": user})
+
+
+# @app.route("/view-transcript/<transcript_id>")
+# def view_transcript(transcript_id):
+#     transcript = get_transcript(transcript_id)
+#     if not transcript:
+#         return "Transcript not found", 404
+#     return render_template("view_transcript.html", transcript=transcript)
+
+
+# @socketio.on("toggle_transcription")
+# def handle_toggle_transcription(data=None):
+#     global transcriber, session_id
+
+#     # If data is provided, extract the title
+#     transcript_title = (
+#         data.get("title", "Untitled Transcript") if data else "Untitled Transcript"
+#     )
+#     print(f"Toggle transcription with title: {transcript_title}")
+
+#     with transcriber_lock:
+#         if session_id:
+#             if transcriber:
+#                 print("Closing transcriber session")
+#                 transcriber.close()
+#                 transcriber = None
+#                 session_id = None
+#         else:
+#             print("Starting transcriber session")
+#             # Store the title in app config
+#             app.config["CURRENT_TRANSCRIPT_TITLE"] = transcript_title
+
+#             threading.Thread(target=transcribe_real_time).start()
+
+
+# if __name__ == "__main__":
+#     socketio.run(app, port=6069, debug=True)

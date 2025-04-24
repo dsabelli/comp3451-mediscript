@@ -97,39 +97,20 @@
       <div class="px-4 py-2">
         <form id="search-form" class="flex items-center">
           <div class="relative w-full">
-            <div
-              class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none"
-            >
-              <svg
-                class="w-4 h-4 text-gray-500"
-                aria-hidden="true"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  stroke="currentColor"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="m19 19-4-4m0-7A7 7 0 1 1 1 8a7 7 0 0 1 14 0Z"
-                />
-              </svg>
-            </div>
             <input
               type="search"
               id="search-input"
-              class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5"
-              placeholder="Search transcripts using keywords..."
+              class="bg-white border border-gray-300 text-gray-900 text-lg rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+              placeholder="Search using keywords..."
               required
             />
           </div>
           <button
             type="submit"
-            class="p-2.5 ml-2 text-sm font-medium text-white bg-blue-500 rounded-lg border border-blue-500 hover:bg-blue-600 focus:ring-4 focus:outline-none focus:ring-blue-300"
+            class="p-2.5 ml-2 text-lg font-medium text-white bg-blue-500 rounded-lg border border-blue-500 hover:bg-blue-600 focus:ring-4 focus:outline-none focus:ring-blue-300"
           >
             <svg
-              class="w-4 h-4"
+              class="w-6 h-6"
               aria-hidden="true"
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -150,15 +131,17 @@
 
       <div class="flex-grow overflow-y-auto px-4">
         <div id="loading" class="text-center py-8 hidden">
-          <p class="text-lg">Searching...</p>
+          <p class="text-xl font-bold">Searching...</p>
         </div>
 
         <div id="no-search" class="text-center py-8">
-          <p class="text-lg">Enter keywords to search transcripts.</p>
+          <p class="text-xl font-bold">Enter keywords to search transcripts.</p>
         </div>
 
         <div id="no-results" class="text-center py-8 hidden">
-          <p class="text-lg">No transcripts found matching your search.</p>
+          <p class="text-xl font-bold">
+            No transcripts found matching your search.
+          </p>
         </div>
 
         <div id="search-results" class="space-y-4 hidden">
@@ -238,7 +221,7 @@
                 resultDiv.className =
                   "transcript-item bg-white shadow rounded-lg p-4";
                 resultDiv.innerHTML = `
-                  <a href="/view-transcript/${transcript.id}" class="block">
+                  <a href="/transcripts/view/${transcript.id}" class="block">
                     <h2 class="text-xl text-black font-bold">${transcript.title}</h2>
                     <p class="text-sm text-gray-500">${transcript.created_at}</p>
                     <div class="mt-2 text-gray-700 truncate">

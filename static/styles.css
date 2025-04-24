@@ -43,20 +43,18 @@ body {
 }
 
 .add-button {
-  position: fixed;
-  bottom: 30px;
-  right: 30px;
-  width: 60px;
-  height: 60px;
-  background-color: #4f46e5;
+  width: 80px;
+  height: 80px;
+  background-color: #025774;
   color: white;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
+  font-size: 60px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   cursor: pointer;
+  padding-bottom: 8px;
 }
 
 .month-heading {
@@ -65,7 +63,6 @@ body {
   padding-bottom: 6px;
   font-size: 18px;
   font-weight: 600;
-  color: #4f46e5;
   border-bottom: 1px solid #e5e7eb;
 }
 

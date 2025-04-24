@@ -117,7 +117,7 @@
         >
       </div>
       <div class="flex max-w-full gap-2">
-        <a class="w-full" href="archive"
+        <a class="w-full" href="transcripts/archive"
           ><div
             style="background-color: #ef4b3e"
             class="items-center h-[180px] w-full flex flex-col"
@@ -276,7 +276,7 @@
         socket.emit("toggle_transcription", { title: title });
 
         // Redirect to transcript page
-        window.location.href = "transcript";
+        window.location.href = "/transcripts/";
       });
 
       // Close the modal if user clicks outside of it
@@ -296,7 +296,6 @@
         day: "numeric",
       };
       date.textContent = today.toLocaleDateString("en-CA", options);
-      const apt = new Date("05-01-2025");
 
       // Check if user is logged in
       document.addEventListener("DOMContentLoaded", function () {
@@ -305,7 +304,7 @@
         // If no user is logged in, redirect to login page
         if (!currentUser) {
           console.log("No user logged in, redirecting to login page");
-          window.location.href = "/login";
+          window.location.href = "main/login";
         } else {
           console.log("User logged in:", currentUser);
         }

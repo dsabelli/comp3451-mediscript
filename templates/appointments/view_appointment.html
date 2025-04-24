@@ -235,7 +235,7 @@
         .addEventListener("click", function () {
           if (confirm("Are you sure you want to delete this appointment?")) {
             // Send delete request to server
-            fetch(`/delete-appointment/{{ appointment.id }}`, {
+            fetch(`/appointments/delete/{{ appointment.id }}`, {
               method: "DELETE",
             })
               .then((response) => response.json())
@@ -331,7 +331,7 @@
             hour12: true,
           });
 
-          fetch("/update-appointment/{{ appointment.id }}", {
+          fetch("/appointments/update/{{ appointment.id }}", {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
